@@ -76,7 +76,7 @@ let s = "";
 if-elif-else
 	
 ```js
-let x = "B"'
+let x = "B";
 if ( x == "A"){
 	// code
 
