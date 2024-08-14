@@ -316,10 +316,10 @@ let filtered = filter([1,2],def(x){
 
 
 1. 字符串处理
-   - 字符串方法 (利用 Python 的 StringUtil)
+   - 字符串方法 (利用在utils/StringUtils里面复用python的字符串方法)
    - 模板字符串
 
-字符串方法，和其他语言，特别是python语言，没事差异，不过fight语言中，方法都是函数式方法，不支持面向对象那样的调用， 比如下面的代码，更多的方法参考 utils / StringUtils.py 
+字符串方法，和其他语言，特别是python语言，没有多大差异，不过在fight语言中，对复杂数据类型的操作方法都是函数式方法，比如StrIndex, ListAppend, ObjContains(), SetDiff等，咋不说不支持面向对象那样的调用， 比如下面的代码，更多的方法参考 utils / StringUtils.py 
 ```js
 let s = "abc";
 @println( StrLength(s) );
