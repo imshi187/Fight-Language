@@ -349,28 +349,29 @@ fight语言支持简单的类机制，下面是一个例子:
 
 ```js
 class Person{  
-     fields{         
-	      Name = "abc";          
-	      Age = "25";     
-	      static Count = 0; 
-	}      
-	methods{          
-		def Hello(){             
-			@printlnRed("Hello, my name is " + Name);             
-			this->hi();          
-		}          
-		def hi(){                       
-			@printlnCyan("Hi, my name is " + Name);  
-             @printlnCyan("Hi, age = " , Age);          
-        }          
-        static def PrintMsg(msg){                        
-		        @printlnYellow(msg);  
-          }      
-    }      
-    init(NameX){          
-	    Name = NameX;          
-	    Age = 100;  
-        @printlnYellow("Person object is created!");      }  
+	     fields{         
+		      Name = "abc";          
+		      Age = "25";     
+		      static Count = 0; 
+		}      
+		methods{          
+			def Hello(){             
+				@printlnRed("Hello, my name is " + Name);             
+				this->hi();          
+			}          
+			def hi(){                       
+				@printlnCyan("Hi, my name is " + Name);  
+	             		@printlnCyan("Hi, age = " , Age);          
+	       		 }          
+	        	static def PrintMsg(msg){                        
+			        @printlnYellow(msg);  
+	          	}      
+	    	}      
+	    init(NameX){          
+		    Name = NameX;          
+		    Age = 100;  
+	        @printlnYellow("Person object is created!");
+           }  
  } 
  
  let p = new Person("Abc");  
