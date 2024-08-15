@@ -1,6 +1,6 @@
 ## Fight Language Tutorial
 ### 更新
-更新1: [增加了可以直接传入函数的特性 & 增加了几个进制方面的输出](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B01-%E5%A2%9E%E5%8A%A0%E7%B3%BB%E5%88%97%E5%86%85%E7%BD%AE%E5%87%BD%E6%95%B0%E5%92%8C%E5%87%BD%E6%95%B0%E4%BD%9C%E4%B8%BA%E5%8F%82%E6%95%B0%E4%BC%A0%E5%85%A5%E7%9A%84%E6%94%AF%E6%8C%81)
+更新1 (2024/8.15) : [增加了可以直接传入函数的特性 & 增加了几个进制方面的输出](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B01-%E5%A2%9E%E5%8A%A0%E7%B3%BB%E5%88%97%E5%86%85%E7%BD%AE%E5%87%BD%E6%95%B0%E5%92%8C%E5%87%BD%E6%95%B0%E4%BD%9C%E4%B8%BA%E5%8F%82%E6%95%B0%E4%BC%A0%E5%85%A5%E7%9A%84%E6%94%AF%E6%8C%81)
 
 ### 简介
    - 语言概述
