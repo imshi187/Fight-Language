@@ -17,7 +17,7 @@
 	  let z= def(callback,val1,val2){     
 		 @callback(val1,val2); 
 	 }; 
-    # 1,  传递箭头函数    #
+    	 # 1,  传递箭头函数    #
 	 @z(<< x,y,>> =>{      
 		  @printlnRed(x*y+1); 
 	   },1000,2);  
