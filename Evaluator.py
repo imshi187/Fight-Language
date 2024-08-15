@@ -1,4 +1,5 @@
 import re
+import uuid
 from typing import List
 
 from colorama import Fore, Back
@@ -125,7 +126,7 @@ class Evaluator:
             return self.evaluate_function_declaration(node)
 
         elif isinstance(node, FunctionCallNode):
-            print("env: ", self.environment)
+            # print("env: ", self.environment)
             return self.evaluate_function_call(node)
 
         elif isinstance(node, ReturnNode):
@@ -1038,7 +1039,6 @@ class Evaluator:
                                          args=[
                                              StringNode(value=add function被调用...)])]}}
         """
-
         color_map = {
             'println': (Fore.RESET, None),
             'printlnRed': (Fore.RED, None),
@@ -1332,16 +1332,31 @@ class Evaluator:
             将外界传入的参数放入environment中，然后执行函数体，
             这样做，内部函数可以访问外界传入的变量
         """
-
         # ====================处理传入的参数为匿名函数或者箭头函数====================================
         # 仅仅函数作为参数时，仅仅支持位置参数
 
-        # ============evaluate_function_call================================
-        # print("env ",self.environment)
-
+        # ===================处理嵌套函数调用=========================================
+        # 得到的是函数调用节点
+        if isinstance(node.name, FunctionCallNode):
+            # print("函数调用节点: ", node)
+            # node.name是一个FunctionCallNode，也就是fcn嵌套fcn
+            func_dict = self.evaluate(node.name)
+            # 参数是传递给func_dict描述的方法的！！！
+            r = self.eval_by_func_dict(func_dict, node.args)
+            # print("args: ", args)
+            # print("result: ", func_dict)
+            # print("r: ", r)
+            return r
+        # ===================处理嵌套函数调用=========================================
+        # 使用Node解求值
         if node.name in self.environment:
             # 准备函数的参数和体
-            func_dict = self.environment[node.name]  # 值居然是None
+            # print("===============> node.name: ", node.name)
+            # print("=======x====> args:  ", node.args)
+            # 结果是None
+            # print("self.environment[node.name] = ", self.environment[node.name])
+            func_dict = self.environment[node.name]
+
             # 如果 func 是一个函数（包括 Lambda 函数）
             func_args = func_dict['args']  # 形参名称,比如 ['a', 'b']
             body_statements = func_dict['body']  # 函数体
@@ -1376,9 +1391,13 @@ class Evaluator:
             # print(" zip(func_args, node.args): ", list(zip(func_args, node.args)))
             # zip(func_args, node.args): [('x', FunctionDeclarationNode(is_static=False, name=cb, args=['y'], body=[
             #     FunctionCallNode(name=print, args=[VariableNode(value=y)], named_arg_values={})], default_values={}, ))]
-
+            # node.args是实参，func_args是形参
+            # print("测试func_args: ", func_args)
             for arg_name, arg_value in zip(func_args, node.args):
                 local_scope[arg_name] = self.evaluate(arg_value)
+                # print("测试返回的结果: ", self.evaluate(arg_value))  # None
+            # print("测试node.args: ", node.args)  # FunctionDeclarationNode
+            # print("测试local_scope: ", local_scope)
 
             # 将命名参数放到环境中
             # 命名参数，比如 add(a=1, b=2)
@@ -1392,7 +1411,7 @@ class Evaluator:
                 if format_param not in local_scope:
                     raise ValueError(f"Function '{node.name}' expects parameter '{format_param}' but got nothing.")
 
-            print("local_scope: ", local_scope)
+            # print("local_scope: ", local_scope)
 
             # =======================环境================================
             # 保存当前的环境，以便函数执行完后恢复
@@ -1405,11 +1424,27 @@ class Evaluator:
             # ===========================new version=====================================
 
             # ==================执行方法体=============================
+
             return_value = None  # 默认的返回值
             for statement in body_statements:
+                # print("statement: ", statement)
+                # 1, 拦截 在if elif else外的 return 语句
+                if isinstance(statement, ReturnNode):
+                    # return return_value.value  # 直接返回返回值
+                    return_value = self.evaluate(statement)
+                    return return_value
+
+                # 2, 拦截 if elif else 里面的 return 语句
+                # ==================if elif else里面的return =====================
+                # return_value判断是不是None, 如果不是None, 说明有了返回值，那么就是直接返回！！！
+                # statement可能是某个ifstatement语句，而ifstatement语句可能有return语句，所以需要判断一下
+                # 是否返回了值，如果返回了，说明就不用再往下执行了
                 return_value = self.evaluate(statement)
-                if isinstance(return_value, ReturnNode):
-                    return return_value.value  # 直接返回返回值
+                # if elif else里面的return的值使用dict继续包装，具体可以看if_statement()
+                if isinstance(return_value, dict) and "fight_tag" in return_value:
+                    # print("dict 类型")
+                    return return_value["value"]  # 直接返回返回值
+                # ==================if elif else里面的return=====================
 
             # ========================恢复环境===================
             # 恢复之前的环境
@@ -1421,6 +1456,50 @@ class Evaluator:
             # ======================================================
         else:
             raise NameError(f"Function '{node.name}' not defined")
+
+    def eval_by_func_dict(self, func_dictx, args):
+        """
+                该方法用来辅助执行嵌套函数调用
+        """
+
+        # 准备函数的参数和体
+        func_dict = func_dictx  # 值居然是None
+        # 如果 func 是一个函数（包括 Lambda 函数）
+        func_args = func_dict['args']  # 形参名称,比如 ['a', 'b']
+        body_statements = func_dict['body']  # 函数体
+        return_value = None  # 函数返回值
+
+        # ============默认参数的部分===========================
+        # FunctionCallNode(
+        #       name=add,
+        #       args=[NumberNode(value=111111), StringNode(value=empty str)])
+        # node.args:  是实际传入的参数  func_args：是形参,函数参数名称(list类型)
+        local_scope = {}
+
+        # node.args是实参，func_args是形参
+        for arg_name, arg_value in zip(func_args, args):
+            local_scope[arg_name] = self.evaluate(arg_value)
+
+        # =======================环境================================
+        # 保存当前的环境，以便函数执行完后恢复
+        previous_environment = self.environment.copy()
+        # 更新环境为局部作用域, 并执行函数体, 这样做，内部函数可以访问外界的变量
+        self.environment.update(local_scope)
+
+        # ==================执行方法体=============================
+        return_value = None  # 默认的返回值
+        for statement in body_statements:
+            return_value = self.evaluate(statement)
+            if isinstance(return_value, ReturnNode):
+                return return_value.value  # 直接返回返回值
+
+        # ========================恢复环境===================
+        # 恢复之前的环境
+        self.environment = previous_environment
+
+        # =======================返回值=========================
+        # 上面的for in 循环,如果for in 遇到return,会直接返回,这里就不会执行
+        return return_value  # 确保返回函数的返回值
 
     def evaluate_for_in(self, node: ForInNode):
         # print("node: ",node)
@@ -1522,7 +1601,7 @@ class Evaluator:
             end_index = self.evaluate(node.end_index)
             return lst[start_index:end_index + 1]
 
-    def evaluate_function_declaration(self, node):
+    def evaluate_function_declaration(self, node: FunctionDeclarationNode):
         # 处理函数声明
         """
             FunctionDeclarationNode(
@@ -1536,16 +1615,21 @@ class Evaluator:
             如果在方法前面加上指定的模块名称，是不是就实现了定义域问题了?
             比如：@module.function() 这样就可以调用模块中的函数了。
         """
-        # let z = def(){}这种形式解析的时候没有将参数放到environment中，导致后续调用的时候找不到参数
-        # print("function_declaration中的node: ", node.name)
-        # 问题出现在name: ,name=cb, 为什么name会是cb
-        print("node: ", node)
+
+        # ==================================================
+        if node.tag is None:  # 表示作为函数进行传递
+            return {
+                "args": node.args,
+                "body": node.body,
+                "defaults": node.default_values,  # 假设在 AST 中传递默认值
+            }
+        # ==================================================
+
         if node.name in self.environment:
             raise NameError(f"Function '{node.name}' already defined")
         self.environment[node.name] = {
             "args": node.args,
             "body": node.body,
-
             #
             "defaults": node.default_values,  # 假设在 AST 中传递默认值
         }
@@ -1554,6 +1638,7 @@ class Evaluator:
     def evaluate_if_statement(self, node):
         # 评估条件表达式
         condition_value: bool = self.evaluate(node.condition)
+        print("condition_value: ", condition_value)
 
         # 根据条件的结果执行相应的代码块
         if condition_value:  # 如果条件为真，执行 if 代码块
@@ -1561,12 +1646,17 @@ class Evaluator:
             for statement in node.if_body:
                 # ============新增： 如果在if语句中遇到return,可以返回值到外界==========
                 if isinstance(statement, ReturnNode):
-                    return self.evaluate(statement.value)  # 直接返回返回值
-                # ============测试==========
-                self.evaluate(statement)
-            return
+                    # print("遇到return node", statement)
+                    # print("self.evaluate(statement.value): ", self.evaluate(statement.value))
+                    # return self.evaluate(statement.value)  # 直接返回返回值 ======> 原来的代码
+                    return {"fight_tag": True, "value": self.evaluate(statement.value)}  # 直接返回返回值
 
-            # elif_: [{"condition": condition, "elif_statements": [statement1, statement2, statement3]}]
+                # ============测试==========
+                else:
+                    self.evaluate(statement)
+            # return
+        print("还继续执行?")
+        # elif_: [{"condition": condition, "elif_statements": [statement1, statement2, statement3]}]
         for elseif_dict in node.elif_:
             condition_value: bool = self.evaluate(elseif_dict['condition'])
             if condition_value:
@@ -1575,7 +1665,8 @@ class Evaluator:
                 for statement in elif_statements:
                     # ============新增： 如果在if语句中遇到return,可以返回值到外界==========
                     if isinstance(statement, ReturnNode):
-                        return self.evaluate(statement.value)  # 直接返回返回值
+                        # return self.evaluate(statement.value)  # 直接返回返回值
+                        return {"fight_tag": True, "value": self.evaluate(statement.value)}  # 直接返回返回值
                     # ============测试==========
                     self.evaluate(statement)
                 return
@@ -1586,12 +1677,12 @@ class Evaluator:
             # 一个问题？ for in 遇到return , 会直接返回，还是接着处理所有的语句? 是直接返回！！！
             for statement in else_statements:
                 # ============新增： 如果在if语句中遇到return,可以返回值到外界==========
-                print("statement: ", statement)
                 if isinstance(statement, ReturnNode):
-                    return self.evaluate(statement.value)  # 直接返回返回值
+                    # return self.evaluate(statement.value)  # 直接返回返回值
+                    return {"fight_tag": True, "value": self.evaluate(statement.value)}  # 直接返回返回值
                 # ============测试==========
                 else:
-                    print("else处的statement: ", statement)
+                    # print("else处的statement: ", statement)
                     self.evaluate(statement)
 
     def evaluate_object(self, node):
@@ -1618,12 +1709,16 @@ class Evaluator:
 
         return result
         # ===============同时考虑包含模板字符串和不包含模板字符串=================================
+
     def evaluate_number(self, node):
         # node是字符串类型,需要转换为数字类型
-        if '.' in node.value:
-            return float(node.value)
-        else:
-            return int(node.value)
+        try:
+            if '.' in node.value:
+                return float(node.value)
+            else:
+                return int(node.value)
+        except ValueError:
+            raise ValueError(f"Invalid number: {node.value}")
 
     def evaluate_variable(self, node):
         """
@@ -1764,15 +1859,21 @@ class Evaluator:
                 break
 
 
-# 好像存在一个重大的问题: 传入的对象如果要调用方法，似乎不可以
 
 # 测试Evaluator
 if __name__ == '__main__':
     # ================================================================
     code = """
-           
-           
-        
+           let get = def(x){
+               return 99;
+               if(x==1){
+                    return 111;
+               }else{
+                    return 222;
+               }
+           };
+           @printlnRed(get(1));
+             
     """
     # ==================================================================
     print("=================tokenizer======================\n")
