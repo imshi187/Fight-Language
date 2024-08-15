@@ -365,7 +365,7 @@ class Tokenizer:
 if __name__ == '__main__':
 
     source_code = """
-        let z = "xxx"; 
+       
     """
 
     tokenizer = Tokenizer(source_code)

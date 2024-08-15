@@ -755,10 +755,10 @@ class Parser:
         elif self.current_token_value() == 'def':
             if self.peek_next_token_type() == 'LPAREN':
                 # 返回FunctionDeclarationNode 即可
-                return self.lambda_function_declaration()
+                return self.anonymous_function_declaration()
 
         # 真的lambda表达式：  let z = lambda x,y:x+y;
-        elif self.current_token_type() == 'KEYWORD' and self.current_token_value() == 'lambda':
+        elif self.current_token_value() == 'lambda':
             if self.peek_next_token_type() == 'ID':
                 # 返回FunctionDeclarationNode 即可
                 return self.real_lambda_function_declaration()
@@ -1039,13 +1039,16 @@ class Parser:
         return FunctionDeclarationNode(lambda_name, params, body)
 
     # let x = def(x,y){ x+y }类型的表达式
-    def lambda_function_declaration(self):
+    def anonymous_function_declaration(self, passin_name=None):
         # let add = def(x = 1,y = 10){ return x+y; }
         lambda_name = self.tokens[self.pos - 2][1]
-        # 解析函数名: 名称有问题，应该设置为一个不会重复的str(数字)
-        # print(" self.tokens[self.pos - 2][1]: ", self.tokens[self.pos - 2][1])
-        # lambda_name = str(uuid.uuid4())  # 随机生成一个uuid作为函数名
-        print("lambda_name: ", lambda_name)
+
+        # if passin_name is not None:
+        #     lambda_name = passin_name
+        # # 解析函数名: 名称有问题，应该设置为一个不会重复的str(数字)
+        # # print(" self.tokens[self.pos - 2][1]: ", self.tokens[self.pos - 2][1])
+        # # lambda_name = str(uuid.uuid4())  # 随机生成一个uuid作为函数名
+        # print("lambda_name: ", lambda_name)
 
         self.eat_current_token_type('KEYWORD')  # def
         self.eat_current_token_type("LPAREN")  # (
@@ -1068,7 +1071,6 @@ class Parser:
                 default_values[params[-1]] = self.expr()
 
             # ===============解析默认值=========test=====
-
             if self.current_token_type() == 'COMMA':
                 self.eat_current_token_type('COMMA')
 
@@ -1079,7 +1081,7 @@ class Parser:
             body.append(self.statement())
         self.eat_current_token_type('RBRACE')  # }
         # self.eat_current_token_type('END')  # ;
-        return FunctionDeclarationNode(lambda_name, params, body, default_values)
+        return FunctionDeclarationNode(lambda_name, params, body, default_values, func_type="anonymous")
 
     def class_method_declaration(self):
         """
@@ -1315,6 +1317,15 @@ class Parser:
         self.eat_current_token_type('ID')
         self.eat_current_token_type('ASSIGN')
         value = self.expr()
+
+        # =====================================
+        if isinstance(value, FunctionDeclarationNode):
+            value.tag = "assignment_value"  # 表示是作为赋值语句的值而已
+
+        # 如果value是作为参数解析传递，应该做一个标记
+        # print("val: ", value)
+        # =====================================
+
         # print("val: ",value)
         if self.current_token_type() == 'END':
             self.eat_current_token_type('END')
@@ -1383,10 +1394,64 @@ class Parser:
         self.eat_current_token_type('END')  # ;
         return FunctionCallNode(name, args, named_arg_values)
 
+    # def function_call_expr(self):
+    #     # 完成  let z = getCb()(1);
+    #     name = self.current_token_value()  # 函数名,ID
+    #     self.eat_current_token_type('ID')  # 函数名
+    #     self.eat_current_token_type('LPAREN')  # (
+    #
+    #     # 解析函数参数
+    #     args = []
+    #     if self.current_token_type() != 'RPAREN':  # 解析第一个参数
+    #         # 函数参数可以是任意表达式，比如1+2, add(), true and true, 1>2, "hello"等
+    #         args.append(self.expr())
+    #         while self.current_token_type() == 'COMMA':  # 解析多个参数
+    #             self.eat_current_token_type('COMMA')  # ,
+    #             args.append(self.expr())
+    #     self.eat_current_token_type('RPAREN')  # )
+    #
+    #     return FunctionCallNode(name, args)
+    #
+    #
+    #
+    #
+    #     # ========================version2==================================
+    #     # name = self.current_token_value()
+    #     # self.eat_current_token_type('ID')
+    #     # self.eat_current_token_type('LPAREN')
+    #     #
+    #     # args = []
+    #     # while self.current_token_type() != 'RPAREN':
+    #     #     # 检查是否是函数定义
+    #     #     if self.current_token_type() == 'KEYWORD' and self.current_token_value() in ['def', 'lambda']:
+    #     #         args.append(self.function_as_argument())
+    #     #     elif self.current_token_type() == 'LT' and self.peek_next_token_type() == 'LT':
+    #     #         args.append(self.arrow_function_declaration())
+    #     #     else:
+    #     #         args.append(self.expr())
+    #     #
+    #     #     if self.current_token_type() == 'COMMA':
+    #     #         self.eat_current_token_type('COMMA')
+    #     #
+    #     # self.eat_current_token_type('RPAREN')
+    #     # return FunctionCallNode(name, args)
+    #
     def function_call_expr(self):
-        # 完成
-        name = self.current_token_value()  # 函数名,ID
-        self.eat_current_token_type('ID')  # 函数名
+        expr = self.parse_single_function_call()
+
+        # 解析连续的函数调用
+        while self.current_token_type() == 'LPAREN':
+            expr = self.parse_single_function_call(expr)
+
+        return expr
+
+    def parse_single_function_call(self, func_expr=None):
+        if func_expr is None:
+            name = self.current_token_value()  # 函数名,ID
+            self.eat_current_token_type('ID')  # 函数名
+        else:
+            name = func_expr
+
         self.eat_current_token_type('LPAREN')  # (
 
         # 解析函数参数
@@ -1398,37 +1463,8 @@ class Parser:
                 self.eat_current_token_type('COMMA')  # ,
                 args.append(self.expr())
         self.eat_current_token_type('RPAREN')  # )
+
         return FunctionCallNode(name, args)
-
-        # ========================version2==================================
-        # name = self.current_token_value()
-        # self.eat_current_token_type('ID')
-        # self.eat_current_token_type('LPAREN')
-        #
-        # args = []
-        # while self.current_token_type() != 'RPAREN':
-        #     # 检查是否是函数定义
-        #     if self.current_token_type() == 'KEYWORD' and self.current_token_value() in ['def', 'lambda']:
-        #         args.append(self.function_as_argument())
-        #     elif self.current_token_type() == 'LT' and self.peek_next_token_type() == 'LT':
-        #         args.append(self.arrow_function_declaration())
-        #     else:
-        #         args.append(self.expr())
-        #
-        #     if self.current_token_type() == 'COMMA':
-        #         self.eat_current_token_type('COMMA')
-        #
-        # self.eat_current_token_type('RPAREN')
-        # return FunctionCallNode(name, args)
-
-    """
-        解析加减
-        优先级：算术 > 比较 》 逻辑 》 
-        
-    """
-
-    def function_as_argument(self):
-        pass
 
     def comparison_expr(self):
         """解析比较表达式，如 >, <, == 等"""
@@ -1604,9 +1640,14 @@ if __name__ == '__main__':
     # 对于 []{}[] 这样的解析操作，是从后往前解析的，
     # 也就是ListIndexNode报告ObjectIndexNode
     code = """
-            let obj = {"lst":[1,{"name":"yuehua","age":14},3]};
-            let r = obj{"lst"}[1]{"name"};
-            @printlnCyan(r);
+           let z= def(callback){
+                @callback();
+            };
+            
+            @z(def(){
+                @println(123);
+            
+            });
     """
 
     # 引入类的机制和引入包的方法一致
