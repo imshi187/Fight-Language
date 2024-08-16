@@ -1395,9 +1395,6 @@ class Evaluator:
             # print("测试func_args: ", func_args)
             for arg_name, arg_value in zip(func_args, node.args):
                 local_scope[arg_name] = self.evaluate(arg_value)
-                # print("测试返回的结果: ", self.evaluate(arg_value))  # None
-            # print("测试node.args: ", node.args)  # FunctionDeclarationNode
-            # print("测试local_scope: ", local_scope)
 
             # 将命名参数放到环境中
             # 命名参数，比如 add(a=1, b=2)
@@ -1411,20 +1408,15 @@ class Evaluator:
                 if format_param not in local_scope:
                     raise ValueError(f"Function '{node.name}' expects parameter '{format_param}' but got nothing.")
 
-            # print("local_scope: ", local_scope)
 
             # =======================环境================================
             # 保存当前的环境，以便函数执行完后恢复
             previous_environment = self.environment.copy()
             # 更新环境为局部作用域, 并执行函数体, 这样做，内部函数可以访问外界的变量
             self.environment.update(local_scope)
-            # ========================执行函数体========old version======================== =====
-            # for statement in body_statements:
-            #     self.evaluate(statement)
-            # ===========================new version=====================================
+
 
             # ==================执行方法体=============================
-
             return_value = None  # 默认的返回值
             for statement in body_statements:
                 # print("statement: ", statement)
@@ -1616,17 +1608,20 @@ class Evaluator:
             比如：@module.function() 这样就可以调用模块中的函数了。
         """
 
-        # ==================================================
-        if node.tag is None:  # 表示作为函数进行传递
-            return {
-                "args": node.args,
-                "body": node.body,
-                "defaults": node.default_values,  # 假设在 AST 中传递默认值
-            }
-        # ==================================================
 
+        # 先看看是不是在环境中已经存在了
         if node.name in self.environment:
+            # raise NameError(f"Function '{node.name}' already defined")
+            # ==================================================
+            if node.tag is None:  # 函数表示作为参数进行传递
+                return {
+                    "args": node.args,
+                    "body": node.body,
+                    "defaults": node.default_values,  # 假设在 AST 中传递默认值
+                }
             raise NameError(f"Function '{node.name}' already defined")
+
+            # ==================================================
         self.environment[node.name] = {
             "args": node.args,
             "body": node.body,
@@ -1860,21 +1855,26 @@ class Evaluator:
 
 
 
+
+# 现有有一个特性：覆盖，也就是说，如果一个名称被重新赋值，那么其类型就可能改变
+
 # 测试Evaluator
 if __name__ == '__main__':
     # ================================================================
     code = """
-           let get = def(x){
-               return 99;
-               if(x==1){
-                    return 111;
-               }else{
-                    return 222;
-               }
+           def cb(callback,x){
+                @callback(x);
+           }
+           @cb(<<x, >> =>{
+                @println("hello world",x);
+           },"fight");
+           
+           let cb = def(){
+                @println("cb被调用了");
            };
-           @printlnRed(get(1));
-             
+           @cb();
     """
+
     # ==================================================================
     print("=================tokenizer======================\n")
     # 词法分析
