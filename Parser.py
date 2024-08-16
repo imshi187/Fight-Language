@@ -125,8 +125,8 @@ class Parser:
             return self.loop_statement()
         elif self.current_token_value() == 'break':
             return self.break_statement()
-        # elif self.current_token_type() == 'KEYWORD' and self.e() == 'function':
-        elif self.e() == 'def':
+        # elif self.current_token_type() == 'KEYWORD' and self.current_token_value() == 'function':
+        elif self.current_token_value() == 'def':
             return self.function_declaration()
         elif self.current_token_type() == 'FUNCTION_CALL_PREFIX' and self.current_token_value() == '@':
             return self.function_call_statement()
@@ -1126,7 +1126,7 @@ class Parser:
         while self.current_token_type() != 'RBRACE':
             body.append(self.statement())
         self.eat_current_token_type('RBRACE')
-        return FunctionDeclarationNode(name, params, body, default_values, is_static)
+        return FunctionDeclarationNode(name, params, body, default_values, is_static,tag="class_method")
 
     def function_declaration(self):
         """
@@ -1650,14 +1650,14 @@ if __name__ == '__main__':
     # 对于 []{}[] 这样的解析操作，是从后往前解析的，
     # 也就是ListIndexNode报告ObjectIndexNode
     code = """
-           let callback = def(){
-                return def(a, b){
-                    return a + b;
-                };
-                
-            };
-            
-            let z = callback(); 
+          def z(){
+                let obj = set<1,2,"字符串", >;
+                for(element in obj){
+                    @printlnCyan(element);
+                }
+            }
+            @z();
+             
     """
 
     # 引入类的机制和引入包的方法一致
