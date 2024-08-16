@@ -95,15 +95,31 @@ if ( x == "A"){
 
 
 for循环由两种，
-	1) for in 循环，用于遍历列表，比如  
-
+	for in 循环，可以遍历列表、字符串、集合(set)以及对象object，比如  
 
 ```js
+#  遍历列表  #
 for(element in [1,2,3]){
-	
-	@printlnRed(element);
-
+   @printlnRed(element);
 }
+ # 遍历字符串 @ 
+ for(ch in "fight"){
+    @printlnCyan(ch);// f i g h t 
+}
+ 
+# 遍历对象 # 
+let obj = {a:1,b:2};
+for(key in obj){ 
+    @printlnCyan(obj{key}); # a b
+}
+  
+# 遍历集合set #
+let obj = set<1,2,"字符串", >;
+for(element in obj){
+    @printlnCyan(element);
+}
+
+
 ```
 2) for 遍历 数字，类似 for range
     
