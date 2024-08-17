@@ -9,7 +9,8 @@ from interpreter.Nodes import (AssignmentNode, FunctionCallNode, BinaryOpNode,
                                ListIndexNode, ObjectIndexNode, ForInNode, PackageDeclarationNode, ImportModuleNode,
                                CommentNode, IfExprNode, MatchExprNode, SwitchNode, DecontructAssignNode,
                                ListDeconstructAssignNode, ForRangeNumberNode, TryCatchFinallyNode, IncrementNode,
-                               DecrementNode, SetNode, CombineNode, MultiListIndexNode, )
+                               DecrementNode, SetNode, CombineNode, MultiListIndexNode, StructDeclarationNode,
+                               StructAssignNode, StructAccessNode, EnumDeclarationNode, EnumAccessNode, )
 from interpreter.Tokenizer import Tokenizer
 from interpreter.Nodes import LoopNode, FunctionDeclarationNode
 
@@ -74,8 +75,6 @@ bnf:
             Array (array): 数组解析。(完成)
             Object (object): 对象解析 （完成）
 """
-
-
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -102,6 +101,7 @@ class Parser:
     """
 
     def statement(self):
+
         # keyword: ['let', 'if', 'else', "elif", 'break', 'loop', 'function', 'return']
         if self.current_token_type() == 'ID' and self.peek_next_token_type() == 'ASSIGN':
             return self.assignment()
@@ -191,11 +191,81 @@ class Parser:
             print('dec')
             return self.decrement_statement()
 
+        elif self.current_token_value() == "struct":
+            return self.struct_statement()
+
+        # enum Color{} 这样的声明语句
+        elif self.current_token_value() == "enum" and self.peek_next_token_type() == "ID":
+            return self.enum_statement()
+
+
+
         else:
             node = self.expr()
             if self.current_token_type() == 'END':
                 self.eat_current_token_type('END')
             return node
+
+    def enum_access_expr(self):
+        # let x= enum::Color::RED;
+        self.eat_current_token_type("KEYWORD")  # enum
+        self.eat_current_token_type("COLON")  # :
+        self.eat_current_token_type("COLON")  # :
+        # 比如Color
+        enum_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        # 解析enum的属性 ::RED
+        self.eat_current_token_type("COLON")  # :
+        self.eat_current_token_type("COLON")  # :
+        # 比如RED
+        enum_property = self.current_token_value()
+        self.eat_current_token_type("ID")
+        print("xxx")
+        return EnumAccessNode(enum_name, enum_property)
+
+    def enum_statement(self):
+        # 解析enum
+        self.eat_current_token_type("KEYWORD")  # enum
+        enum_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("LBRACE")  # {
+        # 解析属性
+        properties = []
+        while self.current_token_type() != "RBRACE":
+            property_name = self.current_token_value()
+            self.eat_current_token_type("ID")
+            properties.append(property_name)
+            if self.current_token_type() == "COMMA":
+                self.eat_current_token_type("COMMA")
+        self.eat_current_token_type("RBRACE")  # }
+        return EnumDeclarationNode(enum_name, properties)
+
+    def struct_statement(self):
+        """
+                struct 名称 {
+                    属性名1, 属性名2;
+                }
+                每个属性的init_value = -1
+
+
+        :return:
+        """
+        # 解析struct
+        self.eat_current_token_type("KEYWORD")  # struct
+        struct_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("LBRACE")  # {
+        # 解析属性
+        properties = {}
+        while self.current_token_type() != "RBRACE":
+            property_name = self.current_token_value()
+            self.eat_current_token_type("ID")
+            properties.update({property_name: -1})
+            if self.current_token_type() == "COMMA":
+                self.eat_current_token_type("COMMA")
+
+        self.eat_current_token_type("RBRACE")  # }
+        return StructDeclarationNode(struct_name, properties)
 
     def decrement_statement(self):
         # id--;
@@ -699,7 +769,16 @@ class Parser:
 
             # 解析对象索引表达式  obj{expr}
             elif self.peek_next_token_type() == 'LBRACE':
+
+                # 尝试解析结构体赋值
+                if self.tokens[self.pos + 3][0] == "COLON":
+                    return self.struct_assign_expr()
+
+                # 尝试解析对象索引表达式  obj{expr}
                 return self.object_index_expr()
+
+
+
 
             # 一个大坑: 对于模块调用方法,第一个token是Id, 那么对其的处理
             # 必须是在 elif token = "ID"分支下
@@ -717,6 +796,10 @@ class Parser:
                 # if self.tokens[self.pos + 3][0] != 'LPAREN':  # 说明是获取对象的属性
                 # return self.get_member_expr()  老名字
                 return self.get_member_expr_or_method_call_expr()
+
+            # 解析结构体对象访问属性的   p::x
+            elif self.peek_next_token_type() == 'COLON' and self.tokens[self.pos + 2][0] == 'COLON':
+                return self.struct_access_expr()
 
             # 解析变量表达式
             node = VariableNode(self.current_token_value())
@@ -785,11 +868,42 @@ class Parser:
         elif self.current_token_value() == 'match':
             return self.match_expr()
 
-
-
+        # let x= enum::Color::RED;
+        elif self.current_token_value() == "enum" and self.peek_next_token_type() == "COLON":
+            print("entered")
+            return self.enum_access_expr()
 
         else:
-            raise SyntaxError(f"Unexpected token: {token}")
+            raise SyntaxError(f"Unexpected token: {token}, value = {self.current_token_value()}, next_token = {self.peek_next_token_type()}")
+
+    def struct_access_expr(self):
+        # 进来的时候是ID
+        # 解析结构体对象访问属性的   p::x
+        struct_instance_name = self.current_token_value()
+        self.eat_current_token_type('ID')  # 实例名
+        self.eat_current_token_type('COLON')  # :
+        self.eat_current_token_type('COLON')  # :
+        struct_field_name = self.current_token_value()
+        self.eat_current_token_type('ID')  # 字段名
+        return StructAccessNode(struct_instance_name, struct_field_name)
+
+    def struct_assign_expr(self):  # 看作表达式
+        # 例子:  Point { x: 1， y: 2}
+        # 解析结构体赋值表达式
+        struct_name = self.current_token_value()
+        self.eat_current_token_type('ID')  # 结构体名
+        self.eat_current_token_type('LBRACE')  # {
+        struct_fields_values = {}
+        while self.current_token_type() != 'RBRACE':
+            field_name = self.current_token_value()
+            self.eat_current_token_type('ID')  # 字段名
+            self.eat_current_token_type('COLON')  # :
+            field_value = self.expr()  # 字段值
+            struct_fields_values[field_name] = field_value
+            if self.current_token_type() == 'COMMA':
+                self.eat_current_token_type('COMMA')  # ,
+        self.eat_current_token_type('RBRACE')  # }
+        return StructAssignNode(struct_name, struct_fields_values)
 
     def combine_expr(self):
         # 函数组合表达式
@@ -1126,7 +1240,7 @@ class Parser:
         while self.current_token_type() != 'RBRACE':
             body.append(self.statement())
         self.eat_current_token_type('RBRACE')
-        return FunctionDeclarationNode(name, params, body, default_values, is_static,tag="class_method")
+        return FunctionDeclarationNode(name, params, body, default_values, is_static, tag="class_method")
 
     def function_declaration(self):
         """
@@ -1324,6 +1438,7 @@ class Parser:
         self.eat_current_token_type('ID')
         self.eat_current_token_type('ASSIGN')
         value = self.expr()
+        print("进入")
 
         # =====================================
         if isinstance(value, FunctionDeclarationNode):
@@ -1645,19 +1760,13 @@ class Parser:
 
 if __name__ == '__main__':
 
-    # 或许可以将这种连续索引的节点解析为 SuccessiveAccessNode(),
-    # 【id, 访问操作1ListIndex，访问操作2PropertyAccess，FunctionCall...】 这样的结构，
-    # 对于 []{}[] 这样的解析操作，是从后往前解析的，
-    # 也就是ListIndexNode报告ObjectIndexNode
+    # 语法冲突: 对象名称{}  访问对象属性的
     code = """
-          def z(){
-                let obj = set<1,2,"字符串", >;
-                for(element in obj){
-                    @printlnCyan(element);
-                }
-            }
-            @z();
-             
+          enum Color {
+                Red, Green, Blue
+          }
+          let x = enum::Color::Red;
+         
     """
 
     # 引入类的机制和引入包的方法一致

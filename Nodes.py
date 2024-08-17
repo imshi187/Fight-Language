@@ -311,7 +311,7 @@ class FunctionCallNode(Node):
 
 
 class FunctionDeclarationNode:
-    def __init__(self, name, args, body, default_values: dict = {}, is_static=False):
+    def __init__(self, name, args, body, default_values: dict = {}, is_static=False, func_type=None, tag=None):
         self.name = name
         self.args = args
         self.body: List = body
@@ -319,9 +319,12 @@ class FunctionDeclarationNode:
         self.return_type = None,
         # 用于判断类的方法是否是静态方法
         self.is_static = is_static
+        # 指的是匿名函数、箭头函数、普通函数(def定义的)
+        self.func_type = func_type
+        self.tag = tag
 
     def __repr__(self):
-        return f"FunctionDeclarationNode(is_static={self.is_static},name={self.name}, args={self.args}, body={self.body}, default_values={self.default_values}, )"
+        return f"FunctionDeclarationNode(tag = {self.tag},func_type={self.func_type},name={self.name}, args={self.args}, body={self.body}, default_values={self.default_values}, is_static={self.is_static},)"
 
 
 class BooleanNode:
@@ -346,3 +349,55 @@ class BreakNode:
 
     def __repr__(self):
         return f"BreakNode(value={self.value})"
+
+
+# struct 名称 {x,y,z}
+# 考虑给每个属性一个初始值,-1
+class StructDeclarationNode(Node):
+    def __init__(self, struct_name, fields: dict = {}):
+        self.struct_name = struct_name
+        self.fields = fields  # 表示字段的值
+
+    def __repr__(self):
+        return f"StructDeclarationNode(name={self.struct_name}, fields={self.fields})"
+
+
+# Point{x:1,y:2}
+class StructAssignNode(Node):
+    def __init__(self, struct_name, struct_fields_values):
+        # id 比如 Point
+        self.struct_name = struct_name
+        # 一个dict 比如{x:1,y:2}
+        self.struct_fields_values = struct_fields_values
+
+    def __repr__(self):
+        return f"StructAssignNode(name={self.struct_name}, fields={self.struct_fields_values})"
+
+
+# p::x 这样访问结构体实例的属性
+class StructAccessNode(Node):
+    def __init__(self, struct_instance_name, field_name):
+        self.struct_instance_name = struct_instance_name
+        self.field_name = field_name
+
+    def __repr__(self):
+        return f"StructAccessNode(name={self.struct_instance_name}, field_name={self.field_name})"
+
+
+class EnumDeclarationNode(Node):
+    def __init__(self, enum_name, enum_values: list = []):
+        self.enum_name = enum_name
+        self.enum_values = enum_values
+
+    def __repr__(self):
+        return f"EnumDeclarationNode(name={self.enum_name}, fields={self.enum_values})"
+
+
+# let x= enum::Color::Red;
+class EnumAccessNode(Node):
+    def __init__(self, enum_name, enum_property):
+        self.enum_name = enum_name
+        self.enum_property = enum_property
+
+    def __repr__(self):
+        return f"EnumAccessNode(enum_name={self.enum_name}, enum_property={self.enum_property})"

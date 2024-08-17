@@ -16,7 +16,8 @@ from interpreter.Nodes import AssignmentNode, NumberNode, BinaryOpNode, Variable
     ListNode, ObjectNode, FunctionDeclarationNode, IfStatementNode, BooleanNode, LoopNode, BreakNode, ReturnNode, \
     ListIndexNode, ObjectIndexNode, ForInNode, PackageDeclarationNode, ImportModuleNode, CommentNode, IfExprNode, \
     MatchExprNode, SwitchNode, DecontructAssignNode, ListDeconstructAssignNode, ForRangeNumberNode, TryCatchFinallyNode, \
-    IncrementNode, DecrementNode, SetNode, CombineNode, MultiListIndexNode
+    IncrementNode, DecrementNode, SetNode, CombineNode, MultiListIndexNode, StructDeclarationNode, StructAssignNode, \
+    StructAccessNode, EnumDeclarationNode, EnumAccessNode
 from interpreter.Parser import Parser
 from interpreter.utils.datastructure.StringUtils import StringUtils
 from interpreter.Tokenizer import Tokenizer
@@ -60,6 +61,8 @@ class Evaluator:
             "constants": [],  # 记录声明的常量
             "objects": {},  # 导入的类和创建的对象
             "interfaces": {},  # 记录接口
+            "structs": {},  # 记录结构体
+            "enums": {}  # 记录枚举类型
 
         }
         self.current_object = None  # 当前this指向的对象
@@ -225,9 +228,106 @@ class Evaluator:
         elif isinstance(node, SetNode):
             return self.evaluate_set_node(node)
 
+        # StructDeclarationNode
+        elif isinstance(node, StructDeclarationNode):
+            return self.evaluate_struct_declaration(node)
+
+        # let z= Point{x:1,y:2};
+        elif isinstance(node, StructAssignNode):
+            return self.evaluate_struct_assign(node)
+
+        # StructAccessNode 访问结构体的属性  比如: p::x
+        elif isinstance(node, StructAccessNode):
+            return self.evaluate_struct_access(node)
+        # EnumDeclarationNode
+        elif isinstance(node, EnumDeclarationNode):
+            return self.evaluate_enum_declaration(node)
+
+        # EnumAccessNode
+        elif isinstance(node, EnumAccessNode):
+            return self.evaluate_enum_access(node)
 
         else:
             raise TypeError(f"Unexpected node type: {type(node)}")
+
+    def evaluate_enum_access(self, node: EnumAccessNode):
+        """
+            let x = enum::Color.Red;
+            EnumAccessNode(name=Color, value=Red)
+            task:
+                检查访问的属性是否存在于枚举类中，
+                1，存在；返回值
+                2，不存在；raise NameError
+        """
+        print("node: ", node)
+        print("env: ",self.environment["enums"])
+        # 检擦枚举类是否存在
+        if node.enum_name not in self.environment["enums"]:
+            raise NameError(f"Enum {node.enum_name} not found!")
+        if node.enum_property not in self.environment["enums"][node.enum_name]:
+            raise NameError(f"Enum property {node.enum_property} not found in {node.enum_name}!")
+        return node.enum_property
+
+
+
+
+
+    def evaluate_enum_declaration(self, node: EnumDeclarationNode):
+        """
+            枚举类型定义
+        """
+        # 枚举类型定义
+        print("node: ", node)
+        enum_values = []
+        for enum_name in node.enum_values:
+            enum_values.append(enum_name)
+        self.environment["enums"][node.enum_name] = enum_values
+        # print(f"Enum {node.enum_name} declared.")
+        print("env: ", self.environment)
+        return None
+
+    def evaluate_struct_access(self, node: StructAccessNode):
+        """
+             访问结构体的属性
+             比如:
+                p::x
+        """
+        if node.struct_instance_name not in self.environment:
+            raise NameError(f"struct instance {node.struct_instance_name} not found!")
+        # print("StructAccessNode =====> ", node)
+        struct_dict = self.environment[node.struct_instance_name]
+        # struct_dict 比如: {'type': 'struct', 'name': 'Point', 'value': {'x': 1, 'y': 2}}
+
+        # 访问不存在的属性
+        print("fieldname: ", node.field_name)
+        if node.field_name not in struct_dict["value"]:
+            return False
+        return struct_dict["value"][node.field_name]
+
+    def evaluate_struct_assign(self, node: StructAssignNode):
+        result = {
+            "type": "struct",
+            "name": f"{node.struct_name}",
+            "value": {}
+        }
+        for field_name in node.struct_fields_values:
+            field_value = self.evaluate(node.struct_fields_values[field_name])
+            result["value"][field_name] = field_value
+        return result
+
+    def evaluate_struct_declaration(self, node: StructDeclarationNode):
+        """
+            将结构体的名称放到env中，以便后续使用
+
+        :param node:
+        :return:
+        """
+        if node.struct_name in self.environment["structs"]:
+            raise NameError(f"Struct {node.struct_name} already exists!")
+        self.environment["structs"][node.struct_name] = node.fields
+        # print(f"Struct {node.struct_name} declared.")
+        # print("env: ", self.environment)
+        return None
 
     def evaluate_set_node(self, node: SetNode):
         # 借用python的set类型创建set类型
@@ -1248,6 +1348,106 @@ class Evaluator:
             myset2 = self.evaluate(node.args[1])
             return myset1.difference(myset2)
 
+        if node.name == "GetParamsByName":
+            func_name = self.evaluate(node.args[0])
+            return self.environment[func_name]["args"]
+
+        # 通过方法名称获取默认参数
+        if node.name == "GetDefaultValues":
+            func_name = self.evaluate(node.args[0])
+            defaults = self.environment[func_name]["defaults"]
+            # defaults:  {'x': NumberNode(value=1)}
+            # print("defaults: ", defaults)
+            for key in defaults:
+                defaults[key] = self.evaluate(defaults[key])
+            return defaults
+
+        # 通过方法名称调用函数
+        # InvokeFunc("方法名称", {})
+        if node.name == "InvokeFunc":
+            name_and_params = [self.evaluate(arg) for arg in node.args]
+            print("name_and_params: ", name_and_params)
+            # 比如: name_and_params:  ['cb', {'x': 5}]
+            return self.invokefunc_server(self.environment[name_and_params[0]], name_and_params[1])
+
+        # 返回类名的字段
+        if node.name == "GetFieldsByClassName":
+            print("GetFields的参数: ", node.args)
+            if len(node.args) > 1:
+                raise ValueError(f"Function '{node.name}' expects 1 argument but got {len(node.args)}.")
+            # 传入的参数就是类名
+            classname = self.evaluate(node.args[0])
+            # 从环境中获取fields的学习
+            fields = self.environment["objects"][classname]["fields"]
+            print("fields: ", fields)
+            return fields
+
+        # GetInstanceFields
+        if node.name == "GetInstanceFields":
+            instance_name = f"{node.args[0].value}"
+            # print("instance_name: ",instance_name)
+            # {'fields': {'Name': 'Fight从入门到精通', 'Price': 99}, 'methods': {}...}
+            instance_dict = self.environment["instances"][instance_name]
+            return instance_dict['fields']
+
+        # 获取实例的方法的相关信息
+        if node.name == "GetInstanceMethods":
+            print("node.args:  ", node.args)
+            instance_name = f"{node.args[0].value}"
+            instance_methods_dict = self.environment["instances"][instance_name]["methods"]
+            print("instance_methods_dict: ", instance_methods_dict)
+
+            result = []
+            for method_name in instance_methods_dict:
+                single_method_dict = instance_methods_dict[method_name]
+                # single method dict: {'args': ['x', 'y'], 'body': []}
+                del single_method_dict['body']
+                single_method_dict['method_name'] = method_name
+                result.append(single_method_dict)
+                for arg in single_method_dict['default_values']:
+                    print("arg: ", arg)
+                    single_method_dict['default_values'][arg] = self.evaluate(single_method_dict['default_values'][arg])
+            return result
+
+        # 设置实例的字段值 SetInstanceField(instance_name,{field:value,field2:value2})
+        if node.name == "SetInstanceField":
+
+            instance_name = f"{node.args[0].value}"
+            field_and_value = self.evaluate(node.args[1])
+            # 可以修改多个属性和值
+            fields = list(field_and_value.keys())
+            values = list(field_and_value.values())
+            for i in range(len(fields)):
+                if fields[i] in self.environment["instances"][instance_name]["fields"]:
+                    self.environment["instances"][instance_name]["fields"][fields[i]] = values[i]
+                else:
+                    raise NameError(f"Field '{fields[i]}' not defined in instance '{instance_name}'")
+            return True
+
+        # 调用实例的方法 InvokeInstanceMethod(instance_name, "method_name", args_dict)
+        # 似乎仅仅支持命名参数
+        if node.name == "InvokeInstanceMethod":
+            print("node.args=====>  ", node.args)
+            instance_name = f"{node.args[0].value}"
+            method_name = self.evaluate(node.args[1])
+            args = self.evaluate(node.args[2])
+            print("instance_name: ", instance_name)
+            print("method_name: ", method_name)
+            print("args: ", args)
+            return self.invokefunc_server(self.environment["instances"][instance_name]["methods"][method_name], args)
+
+        # partialUpdate
+        # args: [VariableNode(value=p), ObjectNode(properties={'x': NumberNode(value=4)})]
+        if node.name == "partialUpdate":
+            # 返回 False 或者 True 表示是否成功
+            instance_name = f"{node.args[0].value}"
+            # 比如  {'x': 4}
+            if instance_name not in self.environment:
+                return False
+            update_dict = self.evaluate(node.args[1])
+            for modification_key_name in update_dict:
+                self.environment[instance_name]["value"][modification_key_name] = update_dict[modification_key_name]
+            return True
         # ===============借用python的字符串方法===================================
         # name就是method_name
         # dir(StringUtils) 得到StringUtils的所有方法，包括自定义的，dir返回列表
@@ -1408,13 +1608,11 @@ class Evaluator:
                 if format_param not in local_scope:
                     raise ValueError(f"Function '{node.name}' expects parameter '{format_param}' but got nothing.")
 
-
             # =======================环境================================
             # 保存当前的环境，以便函数执行完后恢复
             previous_environment = self.environment.copy()
             # 更新环境为局部作用域, 并执行函数体, 这样做，内部函数可以访问外界的变量
             self.environment.update(local_scope)
-
 
             # ==================执行方法体=============================
             return_value = None  # 默认的返回值
@@ -1449,9 +1647,46 @@ class Evaluator:
         else:
             raise NameError(f"Function '{node.name}' not defined")
 
+    def invokefunc_server(self, func_dictx, args):
+        """
+            1,该函数就是用来服务 InvokeFunc方法的
+            2,func_dictx是函数字典，args是实际传入的参数
+              args是命名参数，比如 {a:1, b:2}
+        """
+        func_dict = func_dictx  # 值居然是None
+        # 如果 func 是一个函数（包括 Lambda 函数）
+        func_args = func_dict['args']  # 形参名称,比如 ['a', 'b']
+        body_statements = func_dict['body']  # 函数体
+        return_value = None  # 函数返回值
+
+        local_scope = {}
+        # 这里使用命名参数 {a:1, b:2} 这种
+        for named_arg, named_arg_value in args.items():
+            local_scope[named_arg] = named_arg_value
+        # =======================环境================================
+        # 保存当前的环境，以便函数执行完后恢复
+        previous_environment = self.environment.copy()
+        # 更新环境为局部作用域, 并执行函数体, 这样做，内部函数可以访问外界的变量
+        self.environment.update(local_scope)
+
+        # ==================执行方法体=============================
+        return_value = None  # 默认的返回值
+        for statement in body_statements:
+            return_value = self.evaluate(statement)
+            if isinstance(return_value, ReturnNode):
+                return return_value.value  # 直接返回返回值
+        # ========================恢复环境===================
+        # 恢复之前的环境
+        self.environment = previous_environment
+
+        return return_value  # 确保返回函数的返回值
+
     def eval_by_func_dict(self, func_dictx, args):
         """
                 该方法用来辅助执行嵌套函数调用
+                func_dict是在environment中找到的函数字典，args是实际传入的参数
+                func_dict通过名称来获取，比如:
+                self.environment[func_name]
         """
 
         # 准备函数的参数和体
@@ -1467,7 +1702,7 @@ class Evaluator:
         #       args=[NumberNode(value=111111), StringNode(value=empty str)])
         # node.args:  是实际传入的参数  func_args：是形参,函数参数名称(list类型)
         local_scope = {}
-
+        print("args: ", args)
         # node.args是实参，func_args是形参
         for arg_name, arg_value in zip(func_args, args):
             local_scope[arg_name] = self.evaluate(arg_value)
@@ -1608,7 +1843,6 @@ class Evaluator:
             比如：@module.function() 这样就可以调用模块中的函数了。
         """
 
-
         # 先看看是不是在环境中已经存在了
         if node.name in self.environment:
             # raise NameError(f"Function '{node.name}' already defined")
@@ -1650,7 +1884,7 @@ class Evaluator:
                 else:
                     self.evaluate(statement)
             # return
-        print("还继续执行?")
+        # print("还继续执行?")
         # elif_: [{"condition": condition, "elif_statements": [statement1, statement2, statement3]}]
         for elseif_dict in node.elif_:
             condition_value: bool = self.evaluate(elseif_dict['condition'])
@@ -1854,25 +2088,27 @@ class Evaluator:
                 break
 
 
-
-
 # 现有有一个特性：覆盖，也就是说，如果一个名称被重新赋值，那么其类型就可能改变
 
+"""
+    用dict存放结构体对象的values
+    StructAssignNode(name=Point, fields={'x': NumberNode(value=1), 'y': NumberNode(value=2)}
+    
+    赋值语句
+      p::x = 3;
+      @printlnCyan(p::x);
+"""
 # 测试Evaluator
 if __name__ == '__main__':
     # ================================================================
     code = """
-           def cb(callback,x){
-                @callback(x);
-           }
-           @cb(<<x, >> =>{
-                @println("hello world",x);
-           },"fight");
-           
-           let cb = def(){
-                @println("cb被调用了");
-           };
-           @cb();
+         def add(a, b=10){
+         
+             return a + b;
+         }
+         let info = GetDefaultValues("add");
+         @printlnCyan(info);
+          
     """
 
     # ==================================================================

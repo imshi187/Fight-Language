@@ -91,7 +91,7 @@ class Tokenizer:
                                     "fields", "methods",
                                     "this", "static", "match", "switch", "case", "default", "extends", "interface",
                                     "implements", "range", "to",
-                                    "catch", "try", "finally", "as","set"
+                                    "catch", "try", "finally", "as","set","struct","enum"
                                     ]
         self.logic_operators: List[str] = ['and', 'or', 'not']
         self.bool = ['True', 'False']
@@ -365,7 +365,10 @@ class Tokenizer:
 if __name__ == '__main__':
 
     source_code = """
-        let z = "xxx"; 
+         enum Color {
+                Red, Green, Blue
+        };
+             
     """
 
     tokenizer = Tokenizer(source_code)
