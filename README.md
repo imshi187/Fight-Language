@@ -155,7 +155,7 @@ if ("Red" == enum::Color::Red) {
 	   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fight中枚举类型就是字符串类型, 可以拿其值与字符串进行比较。 其他语言如c, 枚举值背后是数字  
  
 改进            
-	  &nbsp;&nbsp;&nbsp&nbsp;&nbsp;存放数字类型，减小存储空间； 因为每个字符占据一个字节，但是数字一般就一两个字节   但是其实差异不大  
+	  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;存放数字类型，减小存储空间； 因为每个字符占据一个字节，但是数字一般就一两个字节   但是其实差异不大  
     例子:  
 ``` js
 enum Color {  
