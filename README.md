@@ -4,6 +4,8 @@
 
 更新2 (2024/8.17) : [增加了可以枚举enum & 结构体struct & 反射](https://github.com/imshi187/Fight-Language/blob/%E6%9B%B4%E6%96%B02-%E5%A2%9E%E5%8A%A0%E5%8F%8D%E5%B0%84-%26-%E6%9E%9A%E4%B8%BE-%26-%E7%BB%93%E6%9E%84%E4%BD%93%E5%8A%9F%E8%83%BD/README.md) : 已加入到main branch
 
+更新3 (2024/8.18):  [增加了函数注解，极大地加强了函数能力](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B03-%E5%87%BD%E6%95%B0%E6%B3%A8%E8%A7%A3): 已添加到main branch 
+
 ### 简介
    - 语言概述
  
