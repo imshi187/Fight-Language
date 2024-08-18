@@ -311,7 +311,9 @@ class FunctionCallNode(Node):
 
 
 class FunctionDeclarationNode:
-    def __init__(self, name, args, body, default_values: dict = {}, is_static=False, func_type=None, tag=None):
+    def __init__(self, name, args, body, default_values: dict = {}, is_static=False, func_type=None, tag=None,annotations:dict={}):
+        # 注解
+        self.annotations = annotations
         self.name = name
         self.args = args
         self.body: List = body
@@ -323,8 +325,9 @@ class FunctionDeclarationNode:
         self.func_type = func_type
         self.tag = tag
 
+
     def __repr__(self):
-        return f"FunctionDeclarationNode(tag = {self.tag},func_type={self.func_type},name={self.name}, args={self.args}, body={self.body}, default_values={self.default_values}, is_static={self.is_static},)"
+        return f"FunctionDeclarationNode(annotations = {self.annotations},tag = {self.tag},func_type={self.func_type},name={self.name}, args={self.args}, body={self.body}, default_values={self.default_values}, is_static={self.is_static},)"
 
 
 class BooleanNode:

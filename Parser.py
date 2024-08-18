@@ -75,6 +75,8 @@ bnf:
             Array (array): 数组解析。(完成)
             Object (object): 对象解析 （完成）
 """
+
+
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -128,8 +130,17 @@ class Parser:
         # elif self.current_token_type() == 'KEYWORD' and self.current_token_value() == 'function':
         elif self.current_token_value() == 'def':
             return self.function_declaration()
-        elif self.current_token_type() == 'FUNCTION_CALL_PREFIX' and self.current_token_value() == '@':
-            return self.function_call_statement()
+
+        # 注解或者函数调用
+        elif self.current_token_value() == '@':
+            # 注解  @annotation
+            if self.tokens[self.pos + 1][1] == "annotation":
+                return self.annotation()
+            else:
+                # 函数调用
+                return self.function_call_statement()
+
+
         elif self.current_token_value() == 'return':
             return self.return_statement()
         elif self.current_token_value() == "for":
@@ -205,6 +216,30 @@ class Parser:
             if self.current_token_type() == 'END':
                 self.eat_current_token_type('END')
             return node
+
+    def annotation(self):
+        # 解析注解
+        self.eat_current_token_type("FUNCTION_CALL_PREFIX")  # @
+        self.eat_current_token_type("KEYWORD")  # annotation
+        self.eat_current_token_type("LPAREN")  # (
+        properties = {}
+        while self.current_token_type() != "RPAREN":
+
+            # annotation(id = 1, name = "xxx")
+            property_name = self.current_token_value()
+            self.eat_current_token_type("ID")
+            self.eat_current_token_type("ASSIGN")  # =
+            property_value = self.expr()
+            if self.current_token_type() == "COMMA":
+                self.eat_current_token_type("COMMA")
+            # 解析注解的属性
+            properties.update({property_name: property_value})
+        self.eat_current_token_type("RPAREN")  # )
+        fnc_dec_node:FunctionDeclarationNode = self.function_declaration()
+        fnc_dec_node.annotations = properties
+        return fnc_dec_node
+
+
 
     def enum_access_expr(self):
         # let x= enum::Color::RED;
@@ -874,7 +909,8 @@ class Parser:
             return self.enum_access_expr()
 
         else:
-            raise SyntaxError(f"Unexpected token: {token}, value = {self.current_token_value()}, next_token = {self.peek_next_token_type()}")
+            raise SyntaxError(
+                f"Unexpected token: {token}, value = {self.current_token_value()}, next_token = {self.peek_next_token_type()}")
 
     def struct_access_expr(self):
         # 进来的时候是ID
@@ -1762,10 +1798,12 @@ if __name__ == '__main__':
 
     # 语法冲突: 对象名称{}  访问对象属性的
     code = """
-          enum Color {
-                Red, Green, Blue
-          }
-          let x = enum::Color::Red;
+         
+         @annotation(returnType = "int", paramsNum = 2)
+         def add(a, b=10){
+             return a + b;
+         }
+         let dc = GetFnAnnotations(add);
          
     """
 

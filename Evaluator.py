@@ -260,17 +260,13 @@ class Evaluator:
                 2，不存在；raise NameError
         """
         print("node: ", node)
-        print("env: ",self.environment["enums"])
+        print("env: ", self.environment["enums"])
         # 检擦枚举类是否存在
         if node.enum_name not in self.environment["enums"]:
             raise NameError(f"Enum {node.enum_name} not found!")
         if node.enum_property not in self.environment["enums"][node.enum_name]:
             raise NameError(f"Enum property {node.enum_property} not found in {node.enum_name}!")
         return node.enum_property
-
-
-
-
 
     def evaluate_enum_declaration(self, node: EnumDeclarationNode):
         """
@@ -1511,6 +1507,14 @@ class Evaluator:
             method = getattr(TimeUtils, node.name)
             args = [self.evaluate(arg) for arg in node.args]
             return method(*args)
+        if node.name == "GetFnAnnotations":
+            # 获取方法的注释
+            annotations = {}
+            func_description = self.evaluate(node.args[0])
+            if "annotations" in func_description:
+                annotations = func_description["annotations"]
+            # print("func_description: ",annotations)
+            return annotations
 
         # ========================version1=================================
         # 这段代码之所以没有能够解析外部传来的变量，是因为没有将传入的参数放到environment
@@ -1842,13 +1846,16 @@ class Evaluator:
             如果在方法前面加上指定的模块名称，是不是就实现了定义域问题了?
             比如：@module.function() 这样就可以调用模块中的函数了。
         """
-
+        annot = {}
+        for key in node.annotations:
+            annot[key] = self.evaluate(node.annotations[key])
         # 先看看是不是在环境中已经存在了
         if node.name in self.environment:
             # raise NameError(f"Function '{node.name}' already defined")
             # ==================================================
             if node.tag is None:  # 函数表示作为参数进行传递
                 return {
+                    "annotations": annot,
                     "args": node.args,
                     "body": node.body,
                     "defaults": node.default_values,  # 假设在 AST 中传递默认值
@@ -1856,7 +1863,13 @@ class Evaluator:
             raise NameError(f"Function '{node.name}' already defined")
 
             # ==================================================
+        # 处理annotations
+        annot = {}
+        for key in node.annotations:
+            annot[key] = self.evaluate(node.annotations[key])
+
         self.environment[node.name] = {
+            "annotations": annot,
             "args": node.args,
             "body": node.body,
             #
@@ -2088,28 +2101,35 @@ class Evaluator:
                 break
 
 
-# 现有有一个特性：覆盖，也就是说，如果一个名称被重新赋值，那么其类型就可能改变
-
-"""
-    用dict存放结构体对象的values
-    StructAssignNode(name=Point, fields={'x': NumberNode(value=1), 'y': NumberNode(value=2)}
-    
-    赋值语句
-      p::x = 3;
-      @printlnCyan(p::x);
-"""
 # 测试Evaluator
 if __name__ == '__main__':
     # ================================================================
     code = """
+         @annotation(before = def(){ @printlnCyan("事前调用"); }, after = << >> =>{ @printlnCyan("事后调用"); } )
          def add(a, b=10){
-         
              return a + b;
          }
-         let info = GetDefaultValues("add");
-         @printlnCyan(info);
+         
+         let dc = GetFnAnnotations(add);
+         @printlnCyan("dc: ",dc);
+         
+         
+         if(dc{"before"} != ""){
+             @printlnCyan("before info:  ",dc{"before"});
+             let fnBefore = dc{"before"};
+             let fnAfter = dc{"after"};
+             @fnBefore();
+             @fnAfter();
+         }
+        
           
     """
+
+    #  调用beforeCb函数  #
+    # @InvokeFunc(dc
+    #
+    #
+    # {"before"}, {});
 
     # ==================================================================
     print("=================tokenizer======================\n")
