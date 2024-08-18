@@ -91,7 +91,7 @@ class Tokenizer:
                                     "fields", "methods",
                                     "this", "static", "match", "switch", "case", "default", "extends", "interface",
                                     "implements", "range", "to",
-                                    "catch", "try", "finally", "as","set","struct","enum"
+                                    "catch", "try", "finally", "as","set","struct","enum","annotation",
                                     ]
         self.logic_operators: List[str] = ['and', 'or', 'not']
         self.bool = ['True', 'False']
