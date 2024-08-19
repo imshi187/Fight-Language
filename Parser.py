@@ -808,12 +808,8 @@ class Parser:
                 # 尝试解析结构体赋值
                 if self.tokens[self.pos + 3][0] == "COLON":
                     return self.struct_assign_expr()
-
                 # 尝试解析对象索引表达式  obj{expr}
                 return self.object_index_expr()
-
-
-
 
             # 一个大坑: 对于模块调用方法,第一个token是Id, 那么对其的处理
             # 必须是在 elif token = "ID"分支下
@@ -822,6 +818,7 @@ class Parser:
                 if self.tokens[self.pos + 2][0] == "ID":  # ID
                     if self.tokens[self.pos + 3][0] == "LPAREN":  # LPAREN
                         return self.module_method_call_expr()
+
                     else:
                         # 调用模块里面的变量或者常量  比如 @log(Util.pi);
                         return self.module_expr()  # 进入module_expr的时候还是ID,也就是模块名称
@@ -1107,12 +1104,15 @@ class Parser:
         # print("called module_method_call_expr")
         # let z = 模块.add(1,2);
         name = self.current_token_value()  # 模块名称
+        print("name: ", name)
         self.eat_current_token_type('ID')
         name += self.current_token_value()
+        print("name: ", name)
+
         self.eat_current_token_type('DOT')  # .
         name += self.current_token_value()
+        print("name: ", name)
         self.eat_current_token_type('ID')  # 方法名
-
         self.eat_current_token_type('LPAREN')  # (
 
         # 解析函数参数
@@ -1124,7 +1124,8 @@ class Parser:
                 self.eat_current_token_type('COMMA')  # ,
                 args.append(self.expr())
         self.eat_current_token_type('RPAREN')  # )
-        print("module_method_call_expr的args： ", args)
+        # print("module_method_call_expr的args： ", args)
+        print("进入模块调用")
         return FunctionCallNode(name, args)
 
     def arrow_function_declaration(self):
@@ -1798,27 +1799,15 @@ if __name__ == '__main__':
 
     # 语法冲突: 对象名称{}  访问对象属性的
     code = """
-         
-         @annotation(returnType = "int", paramsNum = 2)
-         def add(a, b=10){
-             return a + b;
-         }
-         let dc = GetFnAnnotations(add);
-         
+        let str = "ok";
+        str->upper();  
+     
     """
-
-    # 引入类的机制和引入包的方法一致
-    # environment中存放类的全部属性和方法，对于调用静态的方法，直接在environment中查找
-    # 对于static类型的： 加入到environment中，形式是：类名.xxx
-    # 对于非static类型的： 加入到environment中,形式是：实例.xxx
     tokenizer = Tokenizer(code)
     tokens = tokenizer.tokenize()
     for i in tokens:
         print(i)
-    # 每个语句构成一个Node, 语句之间用分号分隔,多个Node构成一个列表
-    # [AssignmentNode(name=y, value=NumberNode(value=3)),
-    #  AssignmentNode(name=x, value=BinaryOpNode(left=NumberNode(value=3),
-    #       op=PLUS, right=NumberNode(value=2)))]
+
     parser = Parser(tokens)
     ast = parser.parse()  # 生成AST, 多个xxNode组成的列表
     for node in ast:

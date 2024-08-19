@@ -165,7 +165,15 @@ class Evaluator:
 
         # 方法调用解析  p->show();
         elif isinstance(node, MethodCallNode):
-            return self.evaluate_method_call(node)
+            # 能不能再MethodNode里面加个属性, 记录instance的类型，
+            # 比如dict, list, str, 这样在调用方法的时候，就可以根据类型进行调用
+
+            try:
+                # 看看是不是实例进行方法调用
+                return self.evaluate_method_call(node)
+            except NameError as e:
+                # 如果发生了NameError,可能就是基本数据类型进行方法的调用
+                return self.execute_by_instance_type(node)
 
         # 类内部方法调用解析 this.xxx();
         if isinstance(node, CallClassInnerMethod):
@@ -249,6 +257,416 @@ class Evaluator:
 
         else:
             raise TypeError(f"Unexpected node type: {type(node)}")
+
+    def execute_by_instance_type(self, node: MethodCallNode):
+        """
+            根据实例的类型，调用相应的方法
+        """
+
+        var_value = self.environment[node.instance_name]
+        print("当前数据类型是: ", type(var_value))
+
+        # 根据数据类型进行对应方法的调用，也就是说，这样存在一个对类型的隐士判断
+        if isinstance(var_value, str):
+            print("str 实例")
+            return self.evaluate_string_type_method_call(node)
+        if isinstance(var_value, list):
+            return self.evaluate_list_type_method_call(node)
+        if isinstance(var_value, dict):
+            return self.evaluate_dict_type_method_call(node)
+
+
+    def evaluate_dict_type_method_call(self, node: MethodCallNode):
+        """
+            调用字典的方法
+        """
+        var_name = node.instance_name
+        method_name = node.method_name
+        # 获取参数的值
+        arguments = [self.evaluate(arg) for arg in node.arguments]
+        print("======================================")
+        print("变量名称: ", var_name)
+        print("方法每次: ", method_name)
+        print("参数: ", arguments)
+        print("==========")
+        if method_name == "geKeys":
+            return list(self.environment[var_name].keys())
+        if method_name == "getValues":
+            return list(self.environment[var_name].values())
+
+        if method_name == "getValue":
+            return self.environment[var_name].get(arguments[0])
+
+        # 通过key 删除元素
+        if method_name == "deleteItem":
+            return self.environment[var_name].pop(arguments[0])
+
+        if method_name == "update":
+            self.environment[var_name].update(arguments[0])
+            return None
+
+        if method_name == "clear":
+            self.environment[var_name].clear()
+            return None
+
+        # 返回嵌套的list 比如： [['name', 'Alice'], ['age', 20]]
+        if method_name == "getItems":
+            return list([list(item) for item in self.environment[var_name].items()])
+
+        if method_name == "hasKey":
+            return arguments[0] in self.environment[var_name]
+
+
+    def evaluate_string_type_method_call(self, node: MethodCallNode):
+        """
+            调用字符串的方法
+        """
+        var_name = node.instance_name
+        method_name = node.method_name
+        # 获取参数的值
+        arguments = [self.evaluate(arg) for arg in node.arguments]
+        print("======================================")
+        print("变量名称: ", var_name)
+        print("方法每次: ", method_name)
+        print("参数: ", arguments)
+        print("======================================")
+
+        # 常见方法
+        if method_name == "upper":
+            self.environment[var_name] = self.environment[var_name].upper()
+            return self.environment[var_name]
+        if method_name == "lower":
+            self.environment[var_name] = self.environment[var_name].lower()
+            return self.environment[var_name]
+        if method_name == "startsWith":
+            return self.environment[var_name].startswith(arguments[0])
+        if method_name == "endsWith":
+            return self.environment[var_name].endswith(arguments[0])
+        if method_name == "capitalize":
+            self.environment[var_name] = self.environment[var_name].capitalize()
+            return self.environment[var_name]
+        if method_name == "swapcase":
+            self.environment[var_name] = self.environment[var_name].swapcase()
+            return self.environment[var_name]
+        # 分割与连接
+        if method_name == "split":
+            separator = arguments[0]
+            return self.environment[var_name].split(separator)
+        if method_name == "strip":
+            self.environment[var_name] = self.environment[var_name].strip()
+            return self.environment[var_name]
+        # 类型检查
+        if method_name == "isAlpha":
+            return self.environment[var_name].isalpha()
+        if method_name == "isDigit":
+            return self.environment[var_name].isdigit()
+        if method_name == "isAlphaNum":
+            return self.environment[var_name].isalnum()
+        if method_name == "isSpace":
+            return self.environment[var_name].isspace()
+        if method_name == "isLower":
+            return self.environment[var_name].islower()
+        if method_name == "isUpper":
+            return self.environment[var_name].isupper()
+        if method_name == "concat": # 连接字符串
+            self.environment[var_name] = self.environment[var_name] + arguments[0]
+            return self.environment[var_name]
+        if method_name == "charAt":
+            return self.environment[var_name][arguments[0]]
+
+        if method_name == "indexOf":
+            return self.environment[var_name].find(arguments[0])
+
+        if method_name == "contains":
+            return arguments[0] in self.environment[var_name]
+
+    def evaluate_list_type_method_call(self, node: MethodCallNode):
+
+        """
+            改进：
+                记录每个数据的初始类型（类型推断），然后在调用方法的时候
+                根据类型进行调用
+
+            调用基本数据类型的方法，比如字符串的split()方法
+        """
+        pass
+        print("得到的节点信息: ", node)
+        var_name = node.instance_name
+        method_name = node.method_name
+        arguments = [self.evaluate(arg) for arg in node.arguments]
+        print("======================================")
+        print("var_name: ", var_name)
+        print("method_name: ", method_name)
+        print("arguments: ", arguments)
+        print("======================================")
+
+        # 列表的append方法
+        if method_name == "append":
+            # 列表的append方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only append to list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的追加
+            for arg in arguments:
+                value.append(arg)
+            return None
+
+        # insert方法
+        if method_name == "insert":
+            # 列表的insert方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only insert to list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的插入
+            index = arguments[0]
+            for arg in arguments[1:]:
+                value.insert(index, arg)
+                index += 1
+            return None
+
+        # 删除成功，返回True，否则返回False
+        # remove(元素),
+        if method_name == "remove":
+            # 列表的remove方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only remove from list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的删除
+            for arg in arguments:
+                value.remove(arg)
+            return None
+
+        # 删除指定位置的元素
+        # removeAt(索引)
+        if method_name == "removeAt":
+            # 列表的pop方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only removeAt from list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的删除
+            index = arguments[0]
+            value.pop(index)
+            return None
+        # 查找元素的索引
+        if method_name == "indexOf":
+            # 列表的index方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only index list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的索引
+            arg = arguments[0]
+
+            # 列表中不存在该元素，返回-1
+            if arg not in value:
+                return -1
+            return value.index(arg)
+
+        # 计数: count(元素)
+        if method_name == "count":
+            # 列表的count方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only count list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的计数
+            arg = arguments[0]
+            return value.count(arg)
+
+        # reverse()方法
+        if method_name == "reverse":
+            # 列表的reverse方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only reverse list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的反转
+            value.reverse()
+            return None
+
+        # clear()方法
+        if method_name == "clear":
+            # 列表的clear方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only clear list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的清空
+            value.clear()
+            return None
+
+        # 判断列表是否包含某个元素
+        if method_name == "has":
+            # list的for in
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only has list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的判断是否包含
+            arg = arguments[0]
+            return arg in value
+
+        # set 设置列表某个索引的值
+        if method_name == "setAt":
+            # 列表的set方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            xlist = self.environment[var_name]
+
+            if type(xlist) != list:
+                raise TypeError(f"can only set list, but got {type(xlist)}")
+            # 支持任意数量和任意类型类型的数据的设置
+            index = arguments[0]
+            xlist[index] = arguments[1]
+
+            return None
+        # isEmpty()方法
+        if method_name == "isEmpty":
+            # 列表的isEmpty方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only isEmpty list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的判断是否为空
+            return len(value) == 0
+        # length()方法
+        if method_name == "length":
+            # 列表的length方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            value = self.environment[var_name]
+            if type(value) != list:
+                raise TypeError(f"can only length list, but got {type(value)}")
+            # 支持任意数量和任意类型类型的数据的长度
+            return len(value)
+
+        # combine, 类似join方法
+        if method_name == "combine":
+            # 列表的combine方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            xlist = self.environment[var_name]
+            if type(xlist) != list:
+                raise TypeError(f"can only combine list, but got {type(xlist)}")
+            # 支持任意数量和任意类型类型的数据的合并
+            separator = arguments[0]
+
+            # 将每个元素转化为字符串
+            xlist = [str(x) for x in xlist]
+
+            return separator.join(xlist)
+
+        # FunctionDeclarationNode
+        # filter()方法
+        if method_name == "filter":
+            # 列表的filter方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            xlist = self.environment[var_name]
+            if type(xlist) != list:
+                raise TypeError(f"can only filter list, but got {type(xlist)}")
+            # 支持任意数量和任意类型类型的数据的过滤
+            filter_func_dict = arguments[0]
+            return self.filter_server(filter_func_dict, xlist)
+
+        # map()方法
+        if method_name == "map":
+            # 列表的map方法
+            if var_name not in self.environment:
+                raise NameError(f"name '{var_name}' is not defined")
+            xlist = self.environment[var_name]
+            if type(xlist) != list:
+                raise TypeError(f"can only map list, but got {type(xlist)}")
+            # 支持任意数量和任意类型类型的数据的映射
+            map_func_dict = arguments[0]
+            return self.map_server(map_func_dict, xlist)
+
+    def map_server(self, map_func, xlist):
+        """
+            服务map函数的, 可以服务map等函数
+            map_func_dict: 匿名函数，用来map的条件
+            xlist: 待映射的列表
+        """
+        func_dict = map_func  # 值居然是None
+        predicate_param_name = func_dict['args'][0]  # 形参名称,比如['x']
+        body_statements = func_dict['body']  # 函数体
+
+        local_scope = {}
+
+        previous_environment = self.environment.copy()
+
+        # filtered的结果
+        result = []
+        for element in xlist:
+            # 没迭代一个元素就更新一次环境
+            local_scope[predicate_param_name] = element
+            # 保存当前的环境，以便函数执行完后恢复
+            # 更新环境为局部作用域, 并执行函数体, 这样做，内部函数可以访问外界的变量
+            self.environment.update(local_scope)
+            # ==================执行方法体=============================
+            for statement in body_statements:
+                mapped_value = self.evaluate(statement)
+                if isinstance(statement, ReturnNode):
+                    # 如果符合predicate条件，则添加到结果列表中
+                    result.append(mapped_value)
+        # ========================恢复环境===================
+        # 恢复之前的环境
+        self.environment = previous_environment
+        # print("result: ", result)
+        return result
+
+    def filter_server(self, filter_predicate, xlist):
+        """
+            服务filter函数的, 可以服务map等函数
+            filter_predicate: 匿名函数，用来filter的条件
+            xlist: 待过滤的列表
+        """
+        # func_dict的样子: {
+        #   args': ['x'],
+        #   'body': [ReturnNode(value=BinaryOpNode(left=VariableNode(value=x), op=GT, right=NumberNode(value=1)))]
+
+        func_dict = filter_predicate  # 值居然是None
+        predicate_param_name = func_dict['args'][0]  # 形参名称,比如['x']
+        body_statements = func_dict['body']  # 函数体
+
+        local_scope = {}
+
+        previous_environment = self.environment.copy()
+
+        # filtered的结果
+        result = []
+        for element in xlist:
+            # 没迭代一个元素就更新一次环境
+            local_scope[predicate_param_name] = element
+            # 保存当前的环境，以便函数执行完后恢复
+            # 更新环境为局部作用域, 并执行函数体, 这样做，内部函数可以访问外界的变量
+            self.environment.update(local_scope)
+            # ==================执行方法体=============================
+            for statement in body_statements:
+                return_value = self.evaluate(statement)
+                if isinstance(statement, ReturnNode):
+                    # 如果符合predicate条件，则添加到结果列表中
+                    if return_value:
+                        result.append(element)
+        # ========================恢复环境===================
+        # 恢复之前的环境
+        self.environment = previous_environment
+        # print("result: ", result)
+        return result
 
     def evaluate_enum_access(self, node: EnumAccessNode):
         """
@@ -661,67 +1079,12 @@ class Evaluator:
             node.arguments
                     实参
         """
-
-        # ====================version 1============================================
-
-        # 先找到方法的定义
-        # method_name = node.method_name
-        # caller = node.instance_name  # 调用方法的实例
-        # print("caller: ", caller)
-        # args_pass_in = [self.evaluate(arg) for arg in node.arguments]  # 调用方法的参数
-        # print("args_pass_in: ", args_pass_in)
-        #
-        # # 找到实例的所有相关的东西
-        # instance_dict = self.environment["instances"][caller]
-        # print("instance_dict: ", instance_dict)
-        # # 找到方法的定义
-        # method_dict = instance_dict["methods"][method_name]
-        # print("method_dict: ", method_dict)
-        #
-        # # ====================将属性的值赋值到环境变量中==================================
-        # # 将属性的值赋值到环境变量中
-        #
-        # # 问题出在这: 将实例的属性赋值搭配环境中，但是：
-        # # 1, 如果环境中的变量和实例的属性重名，会导致变量覆盖，导致属性的值不对
-        # # 2, 对environment的修改不会让实例的属性也随之改变
-        # for field_name in instance_dict['fields']:
-        #     field_value = instance_dict['fields'][field_name]
-        #     self.environment[field_name] = field_value
-        # # =====================将属性的值赋值到环境变量中=================================
-        #
-        # # 2, 将实例对象放到新环境中
-        # # 3, 将参数放到新环境中
-        # for i in range(len(args_pass_in)):
-        #     arg_name = method_dict['args'][i]  # 获取参数名称，从哪获取呢?
-        #     arg_value = args_pass_in[i]  # 取出参数的值
-        #     self.environment[arg_name] = arg_value
-        # # 4, 调用方法
-        # for statement in method_dict['body']:
-        #     try:
-        #         print("环境中的name(从实例上复制到环境中的): ", self.environment["name"])
-        #         self.evaluate(statement)  # 处理语句，比如函数调用、赋值语句等
-        #     except BreakException:
-        #         break  # 遇到break语句，跳出循环
-        #
-        # # ================================================
-        # # 5, 回复旧环境
-        # # self.environment = old_env
-        # # ================================================
-        #
-        # # 6, 返回结果
-        # # return self.environment[caller]["fields"][method_name]
-        # ====================version 1============================================
+        # print("env test: ", self.environment)
+        # print("node info: ", node)
 
         # ====================version 2============================================
-        # p->show();  p是caller  show()是method_name
-
-        # print("当前的环境: ", self.environment)
-        # print("\nevaluate_method_call: ", node, "\n")
         caller = node.instance_name
         self.current_object = caller  # 记录当前的对象，用于this的解析
-        # print("caller=======>: ", caller,"\n")
-        # print("node.instance_name: ", node.instance_name)
-
         # ====================类调用方法开始============================================
         # 在环境中找到类的定义
         if caller in self.environment["objects"]:
@@ -759,10 +1122,15 @@ class Evaluator:
         if method_name[0].islower():
             raise NameError(f"Method {caller}->{method_name}() is not public. Access denied.")
 
-        # 实例对象的所有东西
-        instance_dict = self.environment["instances"][caller]
-        # 对象的所有方法
-        method_dict = instance_dict["methods"][method_name]
+        try:
+            # 尝试找到该对象
+            # 实例对象的所有东西
+            instance_dict = self.environment["instances"][caller]
+            # 对象的所有方法
+            method_dict = instance_dict["methods"][method_name]
+        except KeyError:
+            # 找不到该对象
+            raise NameError(f"Object {caller} not found.")
 
         # 保存旧环境
         old_env = self.environment
@@ -2104,33 +2472,16 @@ class Evaluator:
 # 测试Evaluator
 if __name__ == '__main__':
     # ================================================================
+    # fight语言的Index从0开始，但是切片是左闭右闭的
+    #
     code = """
-         @annotation(before = def(){ @printlnCyan("事前调用"); }, after = << >> =>{ @printlnCyan("事后调用"); } )
-         def add(a, b=10){
-             return a + b;
-         }
-         
-         let dc = GetFnAnnotations(add);
-         @printlnCyan("dc: ",dc);
-         
-         
-         if(dc{"before"} != ""){
-             @printlnCyan("before info:  ",dc{"before"});
-             let fnBefore = dc{"before"};
-             let fnAfter = dc{"after"};
-             @fnBefore();
-             @fnAfter();
-         }
+          let xlist = [1, 2, 3, 100, 101];
+          let result = xlist->filter(def(x){
+              return x > 10;
+          });
+          @println("result:", result);
         
-          
     """
-
-    #  调用beforeCb函数  #
-    # @InvokeFunc(dc
-    #
-    #
-    # {"before"}, {});
-
     # ==================================================================
     print("=================tokenizer======================\n")
     # 词法分析
