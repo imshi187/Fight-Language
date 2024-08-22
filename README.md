@@ -1,11 +1,11 @@
-## 增加了让基本数据类型直接调用方法的能力
- 
- 下面增加了三种常见数据类型的常见方法，包括
- 1，列表
- 2，字符串
- 3，object({}) 类型
- 
-注意：除了方法外，其他基本数据类型的函数仍然保留 比如，ListAppend() 
+## 增加了基本类型直接调用方法的能力
+
+ 下面增加了4种常见数据类型的常见方法，包括 \
+	 1，列表 \
+	 2，字符串 \
+	 3，object({}) 类型 \
+	 4, set类型  
+ <hr> 
  
 ### 列表
 1. append
@@ -227,5 +227,58 @@ let obj = {"name":"张三", age: 123};
 obj->keys();  // ["name","age"]
 
 obj->getItems(); // [ ["name","张三"], ["age",123] ]
+
+```
+### Set类型
+
+length(): int  
+	&nbsp;&nbsp;&nbsp;&nbsp;返回集合的长度  
+add(element, element2,...): bool  
+	&nbsp;&nbsp;&nbsp;&nbsp;是否添加成功  
+	&nbsp;&nbsp;&nbsp;&nbsp;可以 一次性增加多个元素
+	
+```js
+let s  =  set<1,2,3, >;  
+s->add(4,6);  
+@printlnCyan(s);
+
+```
+remove(): bool  <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;是否删除成功  <br>
+
+clear() : <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;清空元素，成功返回True
+
+contains() : bool <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;是否包含某个元素  
+ 
+.isSubset(set2) : bool <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;调用者是否是set2的子集  <br>
+
+isSuperset(set2) : bool <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;调用者是否是set2的超集  <br>
+
+union(set2): set <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;返回调用者和set2合并后的集合
+
+intersection(set2) : set <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;返回调用者和set2的交集
+
+difference(set2) : set  <br>
+	&nbsp;&nbsp;&nbsp;&nbsp;返回调用者和set2的 "difference"
+
+```js
+let s  =  set<1,2,3, >;  
+s->add(4,6);  
+@printlnCyan(s);  
+  
+s->remove(2);  
+let size = s->size();   // 求size
+@printlnCyan("size: ${size}");  
+@printlnCyan("s = ${s}");  
+  
+@printlnCyan(s->union(set<100,1000,>));   // 求union
+@printlnCyan(s->intersection(set<1,2,100,1000,>));   // 求intersection
+@printlnCyan(s->difference(set<1,2,100,1000,>)); // 求difference
 
 ```
