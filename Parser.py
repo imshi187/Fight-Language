@@ -1,8 +1,8 @@
 import uuid
 
 from interpreter import Node
-from interpreter.ClassRelevantNodes import ClassDeclarationNode, NewObjectNode, MethodCallNode, GetMemberNode, \
-    CallClassInnerMethod, ThisNode, InterfaceNode
+from interpreter.ClassNodes import ClassDeclarationNode, NewObjectNode, MethodCallNode, GetMemberNode, \
+    CallClassInnerMethod, ThisNode, InterfaceNode, GetMemberNodeByThis
 from interpreter.Nodes import (AssignmentNode, FunctionCallNode, BinaryOpNode,
                                NumberNode, VariableNode, IfStatementNode,
                                BooleanNode, StringNode, BreakNode, ReturnNode, ListNode, ObjectNode, UnaryOpNode,
@@ -10,7 +10,8 @@ from interpreter.Nodes import (AssignmentNode, FunctionCallNode, BinaryOpNode,
                                CommentNode, IfExprNode, MatchExprNode, SwitchNode, DecontructAssignNode,
                                ListDeconstructAssignNode, ForRangeNumberNode, TryCatchFinallyNode, IncrementNode,
                                DecrementNode, SetNode, CombineNode, MultiListIndexNode, StructDeclarationNode,
-                               StructAssignNode, StructAccessNode, EnumDeclarationNode, EnumAccessNode, )
+                               StructAssignNode, StructAccessNode, EnumDeclarationNode, EnumAccessNode, ChainNode,
+                               DoWhileNode, )
 from interpreter.Tokenizer import Tokenizer
 from interpreter.Nodes import LoopNode, FunctionDeclarationNode
 
@@ -133,7 +134,7 @@ class Parser:
 
         # 注解或者函数调用
         elif self.current_token_value() == '@':
-            # 注解  @annotation
+            # 函数注解  @annotation
             if self.tokens[self.pos + 1][1] == "annotation":
                 return self.annotation()
             else:
@@ -169,15 +170,13 @@ class Parser:
             # 解析实例调用方法的表达式 比如 p->show();
         elif self.current_token_type() == 'ID' and self.peek_next_token_type() == 'MINUS' and self.tokens[self.pos + 2][
             0] == 'GT' and self.tokens[self.pos + 3][0] == "ID" and self.tokens[self.pos + 4][0] == "LPAREN":
-            return self.method_method_call()
+            return self.method_call()
 
         # 解析注释
         elif self.current_token_type() == "COMMENT":
             return self.parse_comment()
 
-        # 调用实例内部的方法  this->xxx();
-        elif self.call_class_inner_method():
-            return self.evaluate_call_class_inner_method()
+
 
         # switch statement
         elif self.current_token_value() == "switch":
@@ -210,12 +209,41 @@ class Parser:
             return self.enum_statement()
 
 
+        # do while statement
+        elif self.current_token_value() == "do":
+            return self.do_while_statement()
+
 
         else:
             node = self.expr()
             if self.current_token_type() == 'END':
                 self.eat_current_token_type('END')
             return node
+
+
+    def do_while_statement(self):
+        """
+            do{
+
+
+            }while()
+
+        """
+        self.eat_current_token_type("KEYWORD")  # do
+        self.eat_current_token_type("LBRACE")  # {
+        # do while 代码块
+        do_blocks = []
+        while self.current_token_type() != "RBRACE":
+            stmt = self.statement()
+            do_blocks.append(stmt)
+        self.eat_current_token_type("RBRACE")  # }
+        self.eat_current_token_type("KEYWORD") # while
+        self.eat_current_token_type("LPAREN") # (
+        cond = self.expr()
+        self.eat_current_token_type("RPAREN")
+        return DoWhileNode( cond,do_blocks)
+
+
 
     def annotation(self):
         # 解析注解
@@ -235,11 +263,30 @@ class Parser:
             # 解析注解的属性
             properties.update({property_name: property_value})
         self.eat_current_token_type("RPAREN")  # )
-        fnc_dec_node:FunctionDeclarationNode = self.function_declaration()
+        fnc_dec_node: FunctionDeclarationNode = self.function_declaration()
         fnc_dec_node.annotations = properties
         return fnc_dec_node
 
+    def parse_annotation(self):
+        # 解析注解
+        self.eat_current_token_type("FUNCTION_CALL_PREFIX")  # @
+        self.eat_current_token_type("KEYWORD")  # annotation
+        self.eat_current_token_type("LPAREN")  # (
+        properties = {}
+        while self.current_token_type() != "RPAREN":
 
+            # annotation(id = 1, name = "xxx")
+            property_name = self.current_token_value()
+            self.eat_current_token_type("ID")
+            self.eat_current_token_type("ASSIGN")  # =
+            property_value = self.expr()
+            if self.current_token_type() == "COMMA":
+                self.eat_current_token_type("COMMA")
+            # 解析注解的属性
+            properties.update({property_name: property_value})
+        self.eat_current_token_type("RPAREN")  # )
+
+        return properties
 
     def enum_access_expr(self):
         # let x= enum::Color::RED;
@@ -503,8 +550,11 @@ class Parser:
             return True
         return False
 
-    def method_method_call(self):
-        # 解析实例调用方法的表达式 比如 p->show();
+    def method_call(self):
+        """
+            解析实例调用方法的表达式 比如 p->show();
+
+        """
         instance_name = self.current_token_value()  # 实例名
         self.eat_current_token_type('ID')
         self.eat_current_token_type('MINUS')
@@ -519,14 +569,14 @@ class Parser:
                 self.eat_current_token_type('COMMA')
         self.eat_current_token_type('RPAREN')  # )
         self.eat_current_token_type('END')  # ;
-        print("method_method_call: ", MethodCallNode(instance_name, method_name, args))
+        # print("xxx: ", MethodCallNode(instance_name, method_name, args))
 
         return MethodCallNode(instance_name, method_name, args)
 
     # 解析类的声明  class 类名 { fields{} init{} methods{} }
     def class_declaration(self):
         # 进来的时候是class关键字
-        global init_method
+        global init_method, fields_annotations
         self.eat_current_token_type("KEYWORD")  # class
         class_name = self.current_token_value()
         self.eat_current_token_type('ID')  # 类名
@@ -573,7 +623,14 @@ class Parser:
 
                 if_fields_parsed = False  # 是否解析过fields
                 # name = value;
-                while self.current_token_type() == "ID" or self.current_token_value() == "static":
+                fields_annotations = {}  # 字段注解
+                while self.current_token_type() == "ID" or self.current_token_value() == "static" or self.current_token_value() == "@":
+
+                    # 属性注解
+                    field_annotation = None
+                    if self.current_token_value() == "@":
+                        field_annotation = self.parse_annotation()
+                        print("field_annotation: ", field_annotation)
 
                     # ======================static test========================
                     is_static = False
@@ -585,6 +642,14 @@ class Parser:
 
                     if_fields_parsed = True
                     field = self.current_token_value()  # 解析属性名
+
+                    # {属性名称: 函数注解{}}
+                    if field_annotation is not None:
+                        fields_annotations[field] = field_annotation  # 存入字段的注解
+
+
+                    # print("fields_annotations: ", fields_annotations)
+
                     # 判断static修饰的属性名是否首字母大写，如果不是，报错
 
                     # ===========static== test==========================
@@ -618,13 +683,15 @@ class Parser:
                 self.eat_current_token_type("LBRACE")  # {
 
                 # =====================static method=======================
-                while self.current_token_value() == "def" or self.current_token_value() == "static":
+                # @annotation()
+                while self.current_token_value() == "def" or self.current_token_value() == "static" or self.current_token_value() == "@":
                     # method_def_node = self.function_declaration();
                     method_def_node = self.class_method_declaration()  # 解析方法定义节点
                     # SayHello': FunctionDeclarationNode(is_static=True,name=SayHello, args=['arg'],去哦他)
 
                     method_name = method_def_node.name  # 方法名
                     methods[method_name] = method_def_node  # 存入methods字典
+                    # 存入方法的注解
 
                 if is_methods_parsed:
                     self.eat_current_token_type("RBRACE")  # }
@@ -641,7 +708,7 @@ class Parser:
 
         return ClassDeclarationNode(class_name, methods, fields,
                                     init_method, static_methods,
-                                    static_fields, parent_name, interfaces)
+                                    static_fields, parent_name, interfaces,fields_annotations=fields_annotations)
 
     def parse_init_method(self):
         self.eat_current_token_type('KEYWORD')  # init
@@ -888,8 +955,9 @@ class Parser:
         elif self.current_token_value() == "new":
             return self.evaluate_new_expr()
 
+
         elif self.current_token_value() == 'this':
-            print("进入parse_this")  # body里面的: ReturnNode(value=ThisNode())
+            # body里面的: ReturnNode(value=ThisNode())
             return self.parse_this()
 
         # if () x : y 这样的表达式
@@ -905,9 +973,18 @@ class Parser:
             print("entered")
             return self.enum_access_expr()
 
+
+
+
+
+
         else:
             raise SyntaxError(
                 f"Unexpected token: {token}, value = {self.current_token_value()}, next_token = {self.peek_next_token_type()}")
+
+
+
+
 
     def struct_access_expr(self):
         # 进来的时候是ID
@@ -1049,7 +1126,6 @@ class Parser:
         # else:
         #     # 这是一个属性访问
         #     return GetMemberNode(instance_name, member_or_method_name)
-
         # ==============version 2=====================================================
         instance_or_class_name = self.current_token_value()
         self.eat_current_token_type('ID')
@@ -1245,12 +1321,19 @@ class Parser:
 
             }
         """
+        method_annotation = None
+        if self.current_token_value() == "@":
+            method_annotation = self.parse_annotation()
+            print("method_annotation: ", method_annotation)
+
         is_static = False
         if self.current_token_value() == "static":
             is_static = True
             self.eat_current_token_type("KEYWORD")  # static
         self.eat_current_token_type('KEYWORD')  # 'function'  'def'
+
         name = self.current_token_value()  # 函数名
+
         self.eat_current_token_type('ID')  # 函数名
         self.eat_current_token_type('LPAREN')  # (
 
@@ -1277,7 +1360,10 @@ class Parser:
         while self.current_token_type() != 'RBRACE':
             body.append(self.statement())
         self.eat_current_token_type('RBRACE')
-        return FunctionDeclarationNode(name, params, body, default_values, is_static, tag="class_method")
+
+
+        return FunctionDeclarationNode(name, params, body, default_values, is_static, tag="class_method",
+                                       annotations=method_annotation)
 
     def function_declaration(self):
         """
@@ -1643,6 +1729,15 @@ class Parser:
     def expr(self):
         # expr要么返回BinaryOpNode, 要么是term()
 
+
+
+        # 调用实例内部的方法  this->xxx();
+        if self.call_class_inner_method():
+            return self.evaluate_call_class_inner_method()
+
+
+
+
         node = self.term()
         # 优先级比term低
         operators = ("PLUS", "MINUS", "OR")
@@ -1799,9 +1894,12 @@ if __name__ == '__main__':
 
     # 语法冲突: 对象名称{}  访问对象属性的
     code = """
-        let str = "ok";
-        str->upper();  
-     
+          let x = 10;
+          do{
+            @printlnCyan(x);
+            x--;
+          }while(x>0)
+         
     """
     tokenizer = Tokenizer(code)
     tokens = tokenizer.tokenize()
