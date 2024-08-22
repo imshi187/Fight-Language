@@ -4,8 +4,8 @@ from typing import List
 
 from colorama import Fore, Back
 
-from interpreter.ClassRelevantNodes import ClassDeclarationNode, NewObjectNode, MethodCallNode, GetMemberNode, \
-    CallClassInnerMethod, ThisNode, InterfaceNode
+from interpreter.ClassNodes import ClassDeclarationNode, NewObjectNode, MethodCallNode, GetMemberNode, \
+    CallClassInnerMethod, ThisNode, InterfaceNode, GetMemberNodeByThis
 from interpreter.utils.FileDir import FileSystemUtils
 from interpreter.utils.Random import RandomUtils
 from interpreter.utils.Time import TimeUtils
@@ -17,32 +17,11 @@ from interpreter.Nodes import AssignmentNode, NumberNode, BinaryOpNode, Variable
     ListIndexNode, ObjectIndexNode, ForInNode, PackageDeclarationNode, ImportModuleNode, CommentNode, IfExprNode, \
     MatchExprNode, SwitchNode, DecontructAssignNode, ListDeconstructAssignNode, ForRangeNumberNode, TryCatchFinallyNode, \
     IncrementNode, DecrementNode, SetNode, CombineNode, MultiListIndexNode, StructDeclarationNode, StructAssignNode, \
-    StructAccessNode, EnumDeclarationNode, EnumAccessNode
+    StructAccessNode, EnumDeclarationNode, EnumAccessNode, ChainNode, DoWhileNode
 from interpreter.Parser import Parser
 from interpreter.utils.datastructure.StringUtils import StringUtils
 from interpreter.Tokenizer import Tokenizer
 from interpreter.utils.math.MathUtils import MathUtils
-
-"""
-evaluate_assignment(node):
-    将变量的值存入环境变量
-
-evaluate_binary_op(node):
-    计算二元运算符的结果
-
-evaluate_function_call(node):
-    调用函数，并返回结果
-    
-evaluate_number(node):
-    返回数字的值
-    
-evaluate_object(node):
-    返回对象的值
-    
-evaluate_string(node):
-    返回字符串的值
-
-"""
 
 
 class BreakException(Exception):
@@ -167,7 +146,6 @@ class Evaluator:
         elif isinstance(node, MethodCallNode):
             # 能不能再MethodNode里面加个属性, 记录instance的类型，
             # 比如dict, list, str, 这样在调用方法的时候，就可以根据类型进行调用
-
             try:
                 # 看看是不是实例进行方法调用
                 return self.evaluate_method_call(node)
@@ -178,6 +156,10 @@ class Evaluator:
         # 类内部方法调用解析 this.xxx();
         if isinstance(node, CallClassInnerMethod):
             return self.evaluate_call_class_inner_method(node)
+
+
+
+
 
         elif isinstance(node, GetMemberNode):
             return self.evaluate_get_instance_member(node)
@@ -255,8 +237,25 @@ class Evaluator:
         elif isinstance(node, EnumAccessNode):
             return self.evaluate_enum_access(node)
 
+        # do while
+        elif isinstance(node, DoWhileNode):
+            return self.evaluate_do_while(node)
+
         else:
             raise TypeError(f"Unexpected node type: {type(node)}")
+
+    def evaluate_do_while(self, node: DoWhileNode):
+        """
+            实现 do while 循环
+        """
+
+        for statement in node.body:
+            self.evaluate(statement)
+        cond = self.evaluate(node.condition)
+        while cond:
+            for statement in node.body:
+                self.evaluate(statement)
+            cond = self.evaluate(node.condition)
 
     def execute_by_instance_type(self, node: MethodCallNode):
         """
@@ -264,7 +263,7 @@ class Evaluator:
         """
 
         var_value = self.environment[node.instance_name]
-        print("当前数据类型是: ", type(var_value))
+        # print("当前数据类型是: ", type(var_value))
 
         # 根据数据类型进行对应方法的调用，也就是说，这样存在一个对类型的隐士判断
         if isinstance(var_value, str):
@@ -272,9 +271,61 @@ class Evaluator:
             return self.evaluate_string_type_method_call(node)
         if isinstance(var_value, list):
             return self.evaluate_list_type_method_call(node)
+
         if isinstance(var_value, dict):
             return self.evaluate_dict_type_method_call(node)
 
+        if isinstance(var_value, set):
+            return self.evaluate_set_type_method_call(node)
+
+    def evaluate_set_type_method_call(self, node: MethodCallNode):
+        """
+            调用set的方法
+        """
+        var_name = node.instance_name
+        method_name = node.method_name
+        arguments = [self.evaluate(arg) for arg in node.arguments]
+
+        # 获取参数的值
+        if method_name == "add":
+            try:
+                for arg in arguments:
+                    self.environment[var_name].add(arg)
+                return True
+            except:
+                return False
+        if method_name == "remove":
+            try:
+                self.environment[var_name].remove(arguments[0])
+                return True
+            except:
+                return False
+        if method_name == "clear":
+            self.environment[var_name].clear()
+            return True
+        if method_name == "size":
+            return len(self.environment[var_name])
+        if method_name == "contains":
+            return arguments[0] in self.environment[var_name]
+
+        # =======集合上的方法=============
+        # s->isSubset( z2): bool
+        # isSuperset(): bool
+        # union(): Set
+        # intersection(): Set
+        # difference(): Set
+        if method_name == "isSubset":
+            return set(self.environment[var_name]).issubset(arguments[0])
+        if method_name == "isSuperset":
+            return set(self.environment[var_name]).issuperset(arguments[0])
+        if method_name == "union":
+            return set(self.environment[var_name]).union(arguments[0])
+        if method_name == "intersection":
+            return set(self.environment[var_name]).intersection(arguments[0])
+        if method_name == "difference":
+            return set(self.environment[var_name]).difference(arguments[0])
+        if method_name == "intersection":
+            return set(self.environment[var_name]).intersection(arguments[0])
 
     def evaluate_dict_type_method_call(self, node: MethodCallNode):
         """
@@ -315,7 +366,6 @@ class Evaluator:
 
         if method_name == "hasKey":
             return arguments[0] in self.environment[var_name]
-
 
     def evaluate_string_type_method_call(self, node: MethodCallNode):
         """
@@ -368,7 +418,7 @@ class Evaluator:
             return self.environment[var_name].islower()
         if method_name == "isUpper":
             return self.environment[var_name].isupper()
-        if method_name == "concat": # 连接字符串
+        if method_name == "concat":  # 连接字符串
             self.environment[var_name] = self.environment[var_name] + arguments[0]
             return self.environment[var_name]
         if method_name == "charAt":
@@ -390,14 +440,18 @@ class Evaluator:
             调用基本数据类型的方法，比如字符串的split()方法
         """
         pass
-        print("得到的节点信息: ", node)
+        # print("得到的节点信息: ", node)
         var_name = node.instance_name
+        # print("var_name==================> ", var_name)
+
         method_name = node.method_name
+        print("arguments==================> ", node.arguments)
+
         arguments = [self.evaluate(arg) for arg in node.arguments]
         print("======================================")
-        print("var_name: ", var_name)
-        print("method_name: ", method_name)
-        print("arguments: ", arguments)
+        # print("var_name: ", var_name)
+        # print("method_name: ", method_name)
+        # print("arguments: ", arguments)
         print("======================================")
 
         # 列表的append方法
@@ -411,7 +465,7 @@ class Evaluator:
             # 支持任意数量和任意类型类型的数据的追加
             for arg in arguments:
                 value.append(arg)
-            return None
+            return value
 
         # insert方法
         if method_name == "insert":
@@ -426,7 +480,7 @@ class Evaluator:
             for arg in arguments[1:]:
                 value.insert(index, arg)
                 index += 1
-            return None
+            return value
 
         # 删除成功，返回True，否则返回False
         # remove(元素),
@@ -440,7 +494,7 @@ class Evaluator:
             # 支持任意数量和任意类型类型的数据的删除
             for arg in arguments:
                 value.remove(arg)
-            return None
+            return value
 
         # 删除指定位置的元素
         # removeAt(索引)
@@ -454,7 +508,7 @@ class Evaluator:
             # 支持任意数量和任意类型类型的数据的删除
             index = arguments[0]
             value.pop(index)
-            return None
+            return value
         # 查找元素的索引
         if method_name == "indexOf":
             # 列表的index方法
@@ -493,7 +547,7 @@ class Evaluator:
                 raise TypeError(f"can only reverse list, but got {type(value)}")
             # 支持任意数量和任意类型类型的数据的反转
             value.reverse()
-            return None
+            return value
 
         # clear()方法
         if method_name == "clear":
@@ -505,7 +559,7 @@ class Evaluator:
                 raise TypeError(f"can only clear list, but got {type(value)}")
             # 支持任意数量和任意类型类型的数据的清空
             value.clear()
-            return None
+            return value
 
         # 判断列表是否包含某个元素
         if method_name == "has":
@@ -532,7 +586,7 @@ class Evaluator:
             index = arguments[0]
             xlist[index] = arguments[1]
 
-            return None
+            return xlist
         # isEmpty()方法
         if method_name == "isEmpty":
             # 列表的isEmpty方法
@@ -549,9 +603,8 @@ class Evaluator:
             if var_name not in self.environment:
                 raise NameError(f"name '{var_name}' is not defined")
             value = self.environment[var_name]
-            if type(value) != list:
-                raise TypeError(f"can only length list, but got {type(value)}")
             # 支持任意数量和任意类型类型的数据的长度
+            print("len = ", len(value))
             return len(value)
 
         # combine, 类似join方法
@@ -594,6 +647,7 @@ class Evaluator:
             # 支持任意数量和任意类型类型的数据的映射
             map_func_dict = arguments[0]
             return self.map_server(map_func_dict, xlist)
+        # ===============set类型的方法=======================
 
     def map_server(self, map_func, xlist):
         """
@@ -602,7 +656,10 @@ class Evaluator:
             xlist: 待映射的列表
         """
         func_dict = map_func  # 值居然是None
+        # print("predicate_param_name: ", func_dict)  # None
+
         predicate_param_name = func_dict['args'][0]  # 形参名称,比如['x']
+
         body_statements = func_dict['body']  # 函数体
 
         local_scope = {}
@@ -996,6 +1053,7 @@ class Evaluator:
         """
         # 记录当前的对象，用于this的解析，也就是确定this指向的对象
         instance_name = self.current_object
+        print("current_object: ", self.current_object)
         # 方法名称
         method_name = node.method_name
         # 调用方法的参数
@@ -1042,7 +1100,6 @@ class Evaluator:
         """
 
         # ==============静态属性========================================
-        print("environment: ", self.environment)
         # 判断是不是在访问类的static属性
         if node.instance_or_class_name in self.environment["objects"]:
             # print("md 一个类啊")
@@ -1083,8 +1140,10 @@ class Evaluator:
         # print("node info: ", node)
 
         # ====================version 2============================================
-        caller = node.instance_name
+
+        caller = node.instance_name  # 记录调用者的名字
         self.current_object = caller  # 记录当前的对象，用于this的解析
+
         # ====================类调用方法开始============================================
         # 在环境中找到类的定义
         if caller in self.environment["objects"]:
@@ -1177,6 +1236,7 @@ class Evaluator:
             "methods": {},
             "init": {},
             "parent_name": node.class_name,
+            "fields_annotations": {},
         }
         class_name = node.class_name
         # print("类名: ", class_name)
@@ -1192,15 +1252,22 @@ class Evaluator:
             return_instance["fields"][field_name] = field_value
         # print("return_instance(处理prototype的fields后): ",return_instance)
 
+        # 处理fields_annotations
+        for field_name in original_class_definition['fields_annotations']:
+            field_annotation = original_class_definition['fields_annotations'][field_name]
+            return_instance["fields_annotations"][field_name] = field_annotation
+
         # 处理methods
         for method_name in original_class_definition['methods']:
             method_body = original_class_definition['methods'][method_name]['body']
             method_args = original_class_definition['methods'][method_name]['args']
             method_default_values = original_class_definition['methods'][method_name]['default_values']
             return_instance["methods"][method_name] = {
+                # 函数注解
+                "annotations": original_class_definition['methods'][method_name]["annotations"],
                 "args": method_args,
                 "body": method_body,
-                "default_values": method_default_values
+                "default_values": method_default_values,
             }
         # print("return_instance(处理prototype的methods后): ",return_instance)
 
@@ -1261,7 +1328,7 @@ class Evaluator:
         # =======================处理对象调用方法===============================
         # 将 实例对象放到 environment 中
         self.environment["instances"][node.object_name] = return_instance
-        print("environment: ", self.environment)
+        # print("environment: ", self.environment)
         # ======================================================
 
         return return_instance
@@ -1298,8 +1365,12 @@ class Evaluator:
             'methods': {},
             'init': None,
             "static_fields": {},
-            "static_methods": {}  # 静态方法
+            "static_methods": {},  # 静态方法
+            "fields_annotations": {}
         }
+
+        # print(" \n node---------------------> ", node,"\n")
+
         # ====================static 类型属性============================================
         for field_name in node.static_fields:
             # field_name = field.name
@@ -1322,7 +1393,20 @@ class Evaluator:
                 }
         # ====================static 方法============================================
 
-        # 处理字段  field就是key
+        # ===============处理字段的注解===========================
+        for field_name in node.fields_annotations:
+            annot = node.fields_annotations[
+                field_name]  # 格式:  {'permission': StringNode(value=public), 'returnType': StringNode(value=string)}
+            annot_return = {}  # 要返回的annotation
+            for key in annot:
+                annot_return[key] = self.evaluate(annot[key])
+            class_dict['fields_annotations'][field_name] = annot_return
+            # print("class_dict['fields_annotations'] : ", class_dict['fields_annotations'])
+
+        # ===============处理字段的注解===========================
+
+        # ==========================处理字段======================
+        # field就是key
         for field_name in node.fields:
             # field_name = field.name
             field_value = self.evaluate(node.fields[field_name])
@@ -1332,23 +1416,29 @@ class Evaluator:
 
         # 处理方法
         for method_name in node.methods:
+            print("node.methods[method_name].annotations= =================> ", node.methods[method_name].annotations,
+                  "\n")
+
             class_dict['methods'][method_name] = {
+                # 注解注解
+                "annotations": node.methods[method_name].annotations,
                 'args': node.methods[method_name].args,
                 'body': node.methods[method_name].body,
-                "default_values": node.methods[method_name].default_values
+                "default_values": node.methods[method_name].default_values,
             }
-        # print("methods: ", class_dict['methods'])
-
+        # print("class_dict(methods): ", class_dict['methods'])
         # 处理初始化函数
         if node.init:
             class_dict['init'] = {
                 'args': node.init.args,
                 'body': node.init.body,
-                "default_values": node.init.default_values
+                "default_values": node.init.default_values,
+
             }
         # print("init: ", class_dict['init'])
         # 将类定义存储在环境中
         self.environment["objects"][class_name] = class_dict
+        print("class_dict: ", self.environment["objects"][class_name])
 
         # ==============extends========测试=========================================
         # 有一个问题, 初始类问题,
@@ -1812,6 +1902,35 @@ class Evaluator:
             for modification_key_name in update_dict:
                 self.environment[instance_name]["value"][modification_key_name] = update_dict[modification_key_name]
             return True
+
+        # GetMethodAnnotations
+        if node.name == "GetMethodAnnotations":
+            # GetMethodAnnotations(instance_name: 实例, method_name:str)
+            instance_name = f"{node.args[0].value}"
+            method_name = self.evaluate(node.args[1])
+            # print("GetMethodAnnotations: ", instance_name, method_name)
+            try:
+                annotations = self.environment["instances"][instance_name]["methods"][method_name]["annotations"]
+                for key in annotations:
+                    # 解析出值
+                    annotations[key] = self.evaluate(annotations[key])
+                return annotations
+            except:
+                return {}
+
+        # GetFieldAnnotations
+        if node.name == "GetFieldAnnotations":
+            # GetFieldAnnotations(instance_name: 实例, field_name:str)
+            instance_name = f"{node.args[0].value}"
+            field_name = self.evaluate(node.args[1])
+            # print("GetFieldAnnotations: ", instance_name, field_name)
+            try:
+                annotations = self.environment["instances"][instance_name]["fields_annotations"]
+                print("annotations: ", annotations)
+                return {field_name: annotations[field_name]}
+            except:
+                return {}
+
         # ===============借用python的字符串方法===================================
         # name就是method_name
         # dir(StringUtils) 得到StringUtils的所有方法，包括自定义的，dir返回列表
@@ -2218,10 +2337,15 @@ class Evaluator:
         for key in node.annotations:
             annot[key] = self.evaluate(node.annotations[key])
         # 先看看是不是在环境中已经存在了
+
+        # name = map
+        print("node.name: ", node.name)
+
         if node.name in self.environment:
             # raise NameError(f"Function '{node.name}' already defined")
             # ==================================================
             if node.tag is None:  # 函数表示作为参数进行传递
+                # print("收到tag是none的节点: ",node)
                 return {
                     "annotations": annot,
                     "args": node.args,
@@ -2236,13 +2360,30 @@ class Evaluator:
         for key in node.annotations:
             annot[key] = self.evaluate(node.annotations[key])
 
-        self.environment[node.name] = {
+        """
+        
+        没修改前: 
+            self.environment[node.name] = {
+                "annotations": annot,
+                "args": node.args,
+                "body": node.body,
+                "defaults": node.default_values,  # 假设在 AST 中传递默认值
+            }
+        
+        
+        """
+
+        # ================修改后=====================
+        result = {
             "annotations": annot,
             "args": node.args,
             "body": node.body,
             #
             "defaults": node.default_values,  # 假设在 AST 中传递默认值
         }
+        self.environment[node.name] = result
+
+        return result
         # print("after declaration 后的environment: ", self.environment)
 
     def evaluate_if_statement(self, node):
@@ -2472,15 +2613,20 @@ class Evaluator:
 # 测试Evaluator
 if __name__ == '__main__':
     # ================================================================
-    # fight语言的Index从0开始，但是切片是左闭右闭的
-    #
-    code = """
-          let xlist = [1, 2, 3, 100, 101];
-          let result = xlist->filter(def(x){
-              return x > 10;
-          });
-          @println("result:", result);
-        
+    code = """ 
+         let s  =  set<1,2,3, >;
+         s->add(4,6);
+         @printlnCyan(s);
+         
+         s->remove(2);
+         let size = s->size();
+         @printlnCyan("size: ${size}");
+         @printlnCyan("s = ${s}");
+         
+         @printlnCyan(s->union(set<100,1000,>));
+         @printlnCyan(s->intersection(set<1,2,100,1000,>));
+         @printlnCyan(s->difference(set<1,2,100,1000,>));
+         
     """
     # ==================================================================
     print("=================tokenizer======================\n")
@@ -2489,7 +2635,6 @@ if __name__ == '__main__':
     tokens = tokenizer.tokenize()
     for i in tokens:
         print(i)
-
     print("=================parser========================\n")
     # 语法分析
     parser = Parser(tokens)
@@ -2504,4 +2649,5 @@ if __name__ == '__main__':
     for node in ast:
         r = evaluator.evaluate(node)
         # print(r)
-    print("environment: \n\t", evaluator.environment)
+    print("environment（最终版）: \n\t", evaluator.environment)
+    print("environment（instances）: \n\t", evaluator.environment["instances"])

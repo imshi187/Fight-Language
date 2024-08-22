@@ -311,8 +311,9 @@ class FunctionCallNode(Node):
 
 
 class FunctionDeclarationNode:
-    def __init__(self, name, args, body, default_values: dict = {}, is_static=False, func_type=None, tag=None,annotations:dict={}):
-        # 注解
+    def __init__(self, name, args, body, default_values: dict = {}, is_static=False, func_type=None, tag=None,
+                 annotations: dict = {}):
+        # 函数注解
         self.annotations = annotations
         self.name = name
         self.args = args
@@ -324,7 +325,6 @@ class FunctionDeclarationNode:
         # 指的是匿名函数、箭头函数、普通函数(def定义的)
         self.func_type = func_type
         self.tag = tag
-
 
     def __repr__(self):
         return f"FunctionDeclarationNode(annotations = {self.annotations},tag = {self.tag},func_type={self.func_type},name={self.name}, args={self.args}, body={self.body}, default_values={self.default_values}, is_static={self.is_static},)"
@@ -404,3 +404,24 @@ class EnumAccessNode(Node):
 
     def __repr__(self):
         return f"EnumAccessNode(enum_name={self.enum_name}, enum_property={self.enum_property})"
+
+
+class ChainNode(Node):
+    def __init__(self, expr, handler_list):
+        # 要处理的遍历
+        self.expr = expr
+        # 处理器列表, 就是一些方法罢了
+        self.handler_list = handler_list
+
+    def __repr__(self):
+        return f"ChainNode(expr={self.expr}, handler_list={self.handler_list})"
+
+
+# do { } while(true)
+class DoWhileNode(Node):
+    def __init__(self, condition, body):
+        self.condition = condition
+        self.body = body
+
+    def __repr__(self):
+        return f"DoWhileNode(condition={self.condition}, body={self.body})"

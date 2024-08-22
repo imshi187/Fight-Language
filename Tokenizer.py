@@ -90,7 +90,7 @@ class Tokenizer:
                                     'function', 'return', "package", "module", "from", "import", "class", "init", "new",
                                     "fields", "methods",
                                     "this", "static", "match", "switch", "case", "default", "extends", "interface",
-                                    "implements", "range", "to",
+                                    "implements", "range", "to","do","while",
                                     "catch", "try", "finally", "as","set","struct","enum","annotation",
                                     ]
         self.logic_operators: List[str] = ['and', 'or', 'not']
@@ -365,10 +365,11 @@ class Tokenizer:
 if __name__ == '__main__':
 
     source_code = """
-         enum Color {
-                Red, Green, Blue
-        };
-             
+          do{
+            
+            
+          }while()
+          
     """
 
     tokenizer = Tokenizer(source_code)
