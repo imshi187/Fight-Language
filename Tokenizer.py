@@ -91,7 +91,7 @@ class Tokenizer:
                                     "fields", "methods",
                                     "this", "static", "match", "switch", "case", "default", "extends", "interface",
                                     "implements", "range", "to","do","while",
-                                    "catch", "try", "finally", "as","set","struct","enum","annotation",
+                                    "catch", "try", "finally", "as","set","struct","enum","annotation","generator","step"
                                     ]
         self.logic_operators: List[str] = ['and', 'or', 'not']
         self.bool = ['True', 'False']
@@ -352,6 +352,11 @@ class Tokenizer:
             elif self.current_char == '&':
                 tokens.append(('COMBINE', self.current_char))
                 self.advance()
+            # 绝对值
+            elif self.current_char == '|':
+                tokens.append(('ABSOLUTE', self.current_char))
+                self.advance()
+
             else:
                 raise SyntaxError(f"Unexpected character: {self.current_char}")
                 # tokens.append(('Nothing', self.current_char))
@@ -374,5 +379,5 @@ if __name__ == '__main__':
 
     tokenizer = Tokenizer(source_code)
     tokens = tokenizer.tokenize()
-    for token in tokens:
-        print(token)
+    # for token in tokens:
+    #     print(token)

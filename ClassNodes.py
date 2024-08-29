@@ -52,13 +52,14 @@ class GetMemberNode(Node):
 # 比如  let p = new Person("Tom", 20);
 # p->sayHello(); 这样的表达式
 class MethodCallNode(Node):
-    def __init__(self, instance_name, method_name, arguments):
+    def __init__(self, instance_name, method_name, arguments,extra = None):
         self.instance_name = instance_name
         self.method_name = method_name
         self.arguments = arguments
+        self.extra = extra
 
     def __repr__(self):
-        return f"MethodCallNode(instance_name = {self.instance_name},method_name = {self.method_name},arguments = {self.arguments})"
+        return f"MethodCallNode(instance_name = {self.instance_name},method_name = {self.method_name},arguments = {self.arguments},extra = {self.extra})"
 
 
 # let z = new 类名(参数); 这样的表达式

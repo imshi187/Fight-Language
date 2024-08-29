@@ -77,14 +77,16 @@ class SwitchNode(Node):
 
 # match表达式
 class MatchExprNode(Node):
-    def __init__(self, expr, case_value_dict: dict = {}):
+    def __init__(self, expr, case_value_dict: dict = {}, else_expr=None):
         # match(x) {1 => "value"}
         self.expr = expr  # 比如x
         #  1 => "value",  这样的表达式
         self.case_value_dict = case_value_dict
+        # 其他情况的表达式
+        self.else_expr = else_expr
 
     def __repr__(self):
-        return f"MatchExprNode(expr={self.expr}, cases={self.case_value_dict})"
+        return f"MatchExprNode(expr={self.expr}, cases={self.case_value_dict}), else_expr={self.else_expr})"
 
 
 # 处理 if(true) 10: 200 这样的表达式
@@ -425,3 +427,74 @@ class DoWhileNode(Node):
 
     def __repr__(self):
         return f"DoWhileNode(condition={self.condition}, body={self.body})"
+
+
+# 列表生成器  generator[idx+1; idx = 1 to 10];
+class ListGeneratorNode(Node):
+    def __init__(self, gen_expr, iter_name, start, end, step):
+        self.gen_expr = gen_expr
+        self.iter_name = iter_name
+        self.start = start
+        self.end = end
+        self.step = step
+
+    def __repr__(self):
+        return f"ListGeneratorNode(gen_expr={self.gen_expr},iter_name={self.iter_name},start={self.start},end={self.end},step={self.step})"
+
+
+# 求绝对值
+class AbsNode(Node):
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __repr__(self):
+        return f"AbsNode(expr={self.expr})"
+
+
+# 连续调用
+class SerialCall(Node):
+    def __init__(self, caller, methods_list: list = [], extra=None):
+        self.caller = caller
+        self.methods_list = methods_list
+        self.extra = extra
+
+    def __repr__(self):
+        return f"SerialCall(caller={self.caller},methods_list={self.methods_list},extra={self.extra})"
+
+
+# id+=expr;
+class PlusAssignNode(Node):
+    def __init__(self, var_name, inc_val):
+        self.var_name = var_name
+        self.inc_val = inc_val
+
+    def __repr__(self):
+        return f"PlusAssignNode(var_name={self.var_name},inc_val={self.inc_val})"
+
+
+# id-=expr;
+class MinusAssignNode:
+    def __init__(self, var_name, dec_val):
+        self.var_name = var_name
+        self.dec_val = dec_val
+
+    def __repr__(self):
+        return f"MinusAssignNode(var_name={self.var_name},dec_val={self.dec_val})"
+
+class MultiplyAssignNode(Node):
+    def __init__(self, var_name, mul_val):
+        self.var_name = var_name
+        self.mul_val = mul_val
+    def __repr__(self):
+        return f"MultiplyAssignNode(var_name={self.var_name},mul_val={self.mul_val})"
+
+
+# id/=expr;
+class DivideAssignNode(Node):
+    def __init__(self, var_name, div_val):
+        self.var_name = var_name
+        self.div_val = div_val
+
+    def __repr__(self):
+        return f"DivideAssignNode(var_name={self.var_name},div_val={self.div_val})"
+

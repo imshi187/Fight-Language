@@ -11,7 +11,8 @@ from interpreter.Nodes import (AssignmentNode, FunctionCallNode, BinaryOpNode,
                                ListDeconstructAssignNode, ForRangeNumberNode, TryCatchFinallyNode, IncrementNode,
                                DecrementNode, SetNode, CombineNode, MultiListIndexNode, StructDeclarationNode,
                                StructAssignNode, StructAccessNode, EnumDeclarationNode, EnumAccessNode, ChainNode,
-                               DoWhileNode, )
+                               DoWhileNode, ListGeneratorNode, AbsNode, SerialCall, PlusAssignNode, MinusAssignNode,
+                               MultiplyAssignNode, DivideAssignNode, )
 from interpreter.Tokenizer import Tokenizer
 from interpreter.Nodes import LoopNode, FunctionDeclarationNode
 
@@ -104,12 +105,26 @@ class Parser:
     """
 
     def statement(self):
-
+        ops = ["PLUS", "MINUS", "MUL", "DIV"]
         # keyword: ['let', 'if', 'else', "elif", 'break', 'loop', 'function', 'return']
         if self.current_token_type() == 'ID' and self.peek_next_token_type() == 'ASSIGN':
             return self.assignment()
+
+        # id+=exp;
+
+        elif self.current_token_type() == 'ID' and (self.peek_next_token_type() in ops) and self.tokens[self.pos + 2][0] == 'ASSIGN':
+            if self.peek_next_token_type() == "PLUS":
+                return self.plus_assign_statement()
+            if self.peek_next_token_type() == "MINUS":
+                return self.minus_assign_statement()
+            if self.peek_next_token_type() == "MUL":
+                return self.mul_assign_statement()
+            if self.peek_next_token_type() == "DIV":
+                return self.div_assign_statement()
+
         # 比如add()
         elif self.current_token_type() == 'ID' and self.peek_next_token_type() == 'LPAREN':
+            print("函数调用表达式")
             return self.function_call_expr()
             # 解构赋值  let {x, y} = dict对象;
         elif self.current_token_value() == "let" and self.peek_next_token_type() == "LBRACE":
@@ -120,6 +135,12 @@ class Parser:
         # let id = expr;
         elif self.current_token_value() == 'let' and self.peek_next_token_type() != "LBRACE":
             return self.let_statement()
+
+
+        # 变量声明语句
+        elif self.current_token_value() == "$":
+            return self.variable_declaration()
+
 
         elif self.current_token_value() == 'if':
             return self.if_statement()
@@ -137,9 +158,9 @@ class Parser:
             # 函数注解  @annotation
             if self.tokens[self.pos + 1][1] == "annotation":
                 return self.annotation()
-            else:
-                # 函数调用
-                return self.function_call_statement()
+            # else:
+            # 函数调用
+            return self.function_call_statement()
 
 
         elif self.current_token_value() == 'return':
@@ -221,6 +242,66 @@ class Parser:
             return node
 
 
+
+    def div_assign_statement(self):
+        # x/=1;
+        var_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("DIV")  # /
+        self.eat_current_token_type("ASSIGN")  # =
+        div_val = self.expr()
+        self.eat_current_token_type("END")  # ;
+        return DivideAssignNode(var_name, div_val)
+
+    def mul_assign_statement(self):
+        # x*=1;
+        var_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("MUL")  # *
+        self.eat_current_token_type("ASSIGN")  # =
+        mul_val = self.expr()
+        self.eat_current_token_type("END")  # ;
+        return MultiplyAssignNode(var_name, mul_val)
+
+
+    def minus_assign_statement(self):
+        """
+            id-=exp;
+        """
+        var_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("MINUS")  # -
+        self.eat_current_token_type("ASSIGN")  # =
+        dec_val = self.expr()
+        self.eat_current_token_type("END")  # ;
+        return MinusAssignNode(var_name, dec_val)
+
+    def plus_assign_statement(self):
+        """
+            id+=exp;
+        """
+        var_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("PLUS")  # +
+        self.eat_current_token_type("ASSIGN")  # =
+        inc_val = self.expr()
+        self.eat_current_token_type("END")  # ;
+        return PlusAssignNode(var_name, inc_val)
+
+    def variable_declaration(self):
+        """
+            $x = expr;
+        """
+        self.eat_current_token_type("DOLLAR")  # $
+        var_name = self.current_token_value()
+        self.eat_current_token_type("ID")
+        self.eat_current_token_type("ASSIGN")  # =
+
+        var_value = self.expr()
+
+        self.eat_current_token_type("END")  # ;
+        return AssignmentNode(var_name, var_value)
+
     def do_while_statement(self):
         """
             do{
@@ -237,13 +318,11 @@ class Parser:
             stmt = self.statement()
             do_blocks.append(stmt)
         self.eat_current_token_type("RBRACE")  # }
-        self.eat_current_token_type("KEYWORD") # while
-        self.eat_current_token_type("LPAREN") # (
+        self.eat_current_token_type("KEYWORD")  # while
+        self.eat_current_token_type("LPAREN")  # (
         cond = self.expr()
         self.eat_current_token_type("RPAREN")
-        return DoWhileNode( cond,do_blocks)
-
-
+        return DoWhileNode(cond, do_blocks)
 
     def annotation(self):
         # 解析注解
@@ -647,7 +726,6 @@ class Parser:
                     if field_annotation is not None:
                         fields_annotations[field] = field_annotation  # 存入字段的注解
 
-
                     # print("fields_annotations: ", fields_annotations)
 
                     # 判断static修饰的属性名是否首字母大写，如果不是，报错
@@ -708,7 +786,7 @@ class Parser:
 
         return ClassDeclarationNode(class_name, methods, fields,
                                     init_method, static_methods,
-                                    static_fields, parent_name, interfaces,fields_annotations=fields_annotations)
+                                    static_fields, parent_name, interfaces, fields_annotations=fields_annotations)
 
     def parse_init_method(self):
         self.eat_current_token_type('KEYWORD')  # init
@@ -857,7 +935,7 @@ class Parser:
             # 解析数字: 字符串形式
             node = NumberNode(self.current_token_value())
             self.eat_current_token_type('NUMBER')
-            print("node: ", node)
+            # print("node: ", node)
             return node
             # 解析函数调用表达式
         elif token == 'ID':
@@ -915,18 +993,40 @@ class Parser:
             self.eat_current_token_type('BOOL')
             return node
         elif token == 'STRING':
+            # ""->xxx()这种;
+            if self.peek_next_token_type() == "MINUS" and self.tokens[self.pos + 2][0] == "GT":
+                return self.str_expr_method_call()
+
             node = StringNode(self.current_token_value())
             self.eat_current_token_type('STRING')
             return node
+
+        # 列表生成器
+        elif self.current_token_value() == "generator" and self.peek_next_token_type() == "LBRACKET":
+            return self.parse_list_generator()
+
         # 数组解析
         elif token == 'LBRACKET':  # [1,2,3]
-            return self.parse_array()
+
+            lst_node = self.parse_array()
+
+            # []->reverse()->combine()这样的连续调用
+            if self.current_token_type() == "MINUS" and self.tokens[self.pos + 1][0] == "GT":
+                print("enter")
+                return self.list_expr_method_call(lst_node)
+            else:
+                return lst_node
+
         elif token == 'LBRACE':  # {name: "value"}
-            return self.parse_object()
+            obj = self.parse_object()
+            # {}->reverse()->combine()这样的连续调用
+            if self.current_token_type() == "MINUS" and self.tokens[self.pos + 1][0] == "GT":
+                # 解析对象方法调用表达式
+                return self.get_member_expr_or_method_call_expr({"name": "anonymous", "val": obj})
+            return obj
 
         # set集合
         elif self.current_token_value() == 'set' and self.peek_next_token_type() == "LT":
-            print("执行了set")
             return self.parse_set()
 
             # 解析逻辑表达式
@@ -973,7 +1073,9 @@ class Parser:
             print("entered")
             return self.enum_access_expr()
 
-
+        # abs
+        elif self.current_token_value() == "|":
+            return self.abs_expr()
 
 
 
@@ -982,9 +1084,52 @@ class Parser:
             raise SyntaxError(
                 f"Unexpected token: {token}, value = {self.current_token_value()}, next_token = {self.peek_next_token_type()}")
 
+    def list_expr_method_call(self, lst_node):
+        """
+            []->reverse()->combine()这样的连续调用
 
+        """
+        return self.get_member_expr_or_method_call_expr({"name": "anonymous", "val": lst_node})
 
+    def str_expr_method_call(self):
+        # ""->xxx()这种;
+        val = self.current_token_value()
+        self.eat_current_token_type('STRING')  # "
+        return self.get_member_expr_or_method_call_expr({"name": "anonymous", "val": val})
 
+    def abs_expr(self):
+        # abs(x)
+        print("entered abs_expr")
+        self.eat_current_token_type("ABSOLUTE")  # |
+        expr = self.expr()
+        self.eat_current_token_type("ABSOLUTE")  # |
+        return AbsNode(expr)
+
+    def parse_list_generator(self):
+        # generator([x+1; 1 to 10];
+        self.eat_current_token_type('KEYWORD')  # generator
+        self.eat_current_token_type('LBRACKET')  # [
+        # 解析列表生成器的表达式
+        gen_expr = self.expr()
+        self.eat_current_token_type("END")
+
+        iter_name = self.current_token_value()
+        self.eat_current_token_type('ID')  # 迭代器变量名
+        self.eat_current_token_type("ASSIGN")  # =
+
+        start = self.expr()
+        self.eat_current_token_type("KEYWORD")  # to
+        end = self.expr()
+
+        # step
+        if self.current_token_value() == "step":
+            self.eat_current_token_type("KEYWORD")  # step
+            step = self.expr()
+        else:
+            step = 1
+        self.eat_current_token_type("RBRACKET")
+
+        return ListGeneratorNode(gen_expr, iter_name, start, end, step)
 
     def struct_access_expr(self):
         # 进来的时候是ID
@@ -1037,8 +1182,9 @@ class Parser:
             set_values.append(self.expr())
             if self.current_token_type() == 'COMMA':
                 self.eat_current_token_type('COMMA')
-        print("token: ", self.current_token_value())
         self.eat_current_token_type('GT')  # >
+        print("set_values: ", set_values)
+
         return SetNode(set_values)
 
     def match_expr(self):
@@ -1046,8 +1192,10 @@ class Parser:
            let z = match(x){
                 1 => "one",
                 2 => "two",
+                else => "other"
             }
         """
+        global case
         self.eat_current_token_type('KEYWORD')  # match
         self.eat_current_token_type('LPAREN')  # (
         expr = self.expr()  # 变量
@@ -1056,8 +1204,17 @@ class Parser:
 
         case_value_dict = {}  # 解析case的value
 
+        else_expr = None  # 解析else的表达式
+
         while self.current_token_type() != 'RBRACE':
-            case = self.expr()
+            if self.current_token_value() == 'else':
+                self.eat_current_token_type('KEYWORD')  # else
+                self.eat_current_token_type('ASSIGN')  # =
+                self.eat_current_token_type('GT')  # >
+                else_expr = self.expr()
+                continue
+            else:
+                case = self.expr()
             self.eat_current_token_type('ASSIGN')  # =
             self.eat_current_token_type('GT')  # >
             expr_if_match = self.expr()
@@ -1066,7 +1223,7 @@ class Parser:
             # 还有进步空间，比如一些语句也可以在这执行
             self.eat_current_token_type('COMMA')  # ,
         self.eat_current_token_type('RBRACE')  # }
-        return MatchExprNode(expr, case_value_dict)
+        return MatchExprNode(expr, case_value_dict, else_expr)
 
     def if_expr(self):
         # if(condi) x : y
@@ -1092,45 +1249,73 @@ class Parser:
         self.eat_current_token_type("COMMENT")
         return CommentNode(comment_content)
 
-    def get_member_expr_or_method_call_expr(self):
+    def get_member_expr_or_method_call_expr(self, expr_method_call_instance=None):
 
-        # ===============version 1=============================
-        # 获取成员属性的表达式 @log(p->Age);
-        # instance_name = self.current_token_value()
-        # self.eat_current_token_type('ID')  # instance_name: p
-        # self.eat_current_token_type('MINUS')  # -
-        # self.eat_current_token_type('GT')  # >
-        # member_name = self.current_token_value()
-        # self.eat_current_token_type('ID')  # member_name: Age
-        # return GetMemberNode(instance_name, member_name)
-        # ===============version 1=============================
+        # 考虑外界传进来一个匿名的对象： anonymous
+        if expr_method_call_instance is not None:
+            instance_or_class_name = expr_method_call_instance["name"]
+        else:
+            instance_or_class_name = self.current_token_value()
+            self.eat_current_token_type('ID')
 
-        # ====================合并属性访问和方法调用表达式=======================
-        # instance_name = self.current_token_value()
+        # 原来的代码:
+        # instance_or_class_name = self.current_token_value()
         # self.eat_current_token_type('ID')
-        # self.eat_current_token_type('MINUS')
-        # self.eat_current_token_type('GT')
-        # member_or_method_name = self.current_token_value()
-        # self.eat_current_token_type('ID')
-        #
-        # if self.current_token_type() == 'LPAREN':
-        #     # 这是一个方法调用
-        #     self.eat_current_token_type('LPAREN')
-        #     args = []
-        #     while self.current_token_type() != 'RPAREN':
-        #         args.append(self.expr())
-        #         if self.current_token_type() == 'COMMA':
-        #             self.eat_current_token_type('COMMA')
-        #     self.eat_current_token_type('RPAREN')
-        #     return MethodCallNode(instance_name, member_or_method_name, args)
-        # else:
-        #     # 这是一个属性访问
-        #     return GetMemberNode(instance_name, member_or_method_name)
-        # ==============version 2=====================================================
-        instance_or_class_name = self.current_token_value()
-        self.eat_current_token_type('ID')
+
         self.eat_current_token_type('MINUS')
         self.eat_current_token_type('GT')
+        member_or_method_name = self.current_token_value()
+        self.eat_current_token_type('ID')
+        print("出现")
+
+        if self.current_token_type() == 'LPAREN':
+            # 这是一个方法调用
+            self.eat_current_token_type('LPAREN')
+            args = []
+            while self.current_token_type() != 'RPAREN':
+                args.append(self.expr())
+                if self.current_token_type() == 'COMMA':
+                    self.eat_current_token_type('COMMA')
+            self.eat_current_token_type('RPAREN')
+
+            # ======================= 连续调用出现=================
+            serial_call = []
+            while self.current_token_type() == 'MINUS' and self.tokens[self.pos + 1][0] == 'GT':
+                print("连续调用")
+                if expr_method_call_instance is not None:
+                    serial_call.append(MethodCallNode(instance_or_class_name, member_or_method_name, args,
+                                                      extra=expr_method_call_instance["val"]))
+                else:
+                    serial_call.append(MethodCallNode(instance_or_class_name, member_or_method_name, args))
+                while self.current_token_type() != 'END':
+                    if expr_method_call_instance is not None:
+                        serial_call.append(self.single_method_call_expr(instance_or_class_name,
+                                                                        extra=expr_method_call_instance["val"]))
+                    else:
+                        serial_call.append(self.single_method_call_expr(instance_or_class_name))
+                if expr_method_call_instance is not None:
+                    return SerialCall(instance_or_class_name, serial_call, extra=expr_method_call_instance["val"])
+                else:
+                    return SerialCall(instance_or_class_name, serial_call)
+            # ======================= 连续调用出现=================
+            if expr_method_call_instance is not None:
+                return MethodCallNode(instance_or_class_name, member_or_method_name, args,
+                                      extra=expr_method_call_instance["val"])
+            else:
+                return MethodCallNode(instance_or_class_name, member_or_method_name, args)
+        else:
+            # 这是一个属性访问，可能是实例属性或静态属性
+            return GetMemberNode(instance_or_class_name, member_or_method_name)
+        # ========================version 2 ===end===========================================================================
+
+    def single_method_call_expr(self, instance_or_class_name, extra=None):
+
+        # 干掉 -> 符号
+        if self.current_token_type() == 'MINUS':
+            self.eat_current_token_type('MINUS')
+        if self.current_token_type() == 'GT':
+            self.eat_current_token_type('GT')
+        # 从 -> 开始
         member_or_method_name = self.current_token_value()
         self.eat_current_token_type('ID')
 
@@ -1143,11 +1328,10 @@ class Parser:
                 if self.current_token_type() == 'COMMA':
                     self.eat_current_token_type('COMMA')
             self.eat_current_token_type('RPAREN')
-            return MethodCallNode(instance_or_class_name, member_or_method_name, args)
+            return MethodCallNode(instance_or_class_name, member_or_method_name, args, extra=extra)
         else:
             # 这是一个属性访问，可能是实例属性或静态属性
             return GetMemberNode(instance_or_class_name, member_or_method_name)
-        # ========================version 2 ===end===========================================================================
 
     def evaluate_new_expr(self):
         # let z = new 类名();
@@ -1360,7 +1544,6 @@ class Parser:
         while self.current_token_type() != 'RBRACE':
             body.append(self.statement())
         self.eat_current_token_type('RBRACE')
-
 
         return FunctionDeclarationNode(name, params, body, default_values, is_static, tag="class_method",
                                        annotations=method_annotation)
@@ -1708,6 +1891,12 @@ class Parser:
                 self.eat_current_token_type('COMMA')  # ,
                 args.append(self.expr())
         self.eat_current_token_type('RPAREN')  # )
+        print("test")
+        print("cur: ", self.current_token_value())
+
+        # ====================增加的代码=================
+        if self.current_token_type() == 'END':
+            self.eat_current_token_type('END')
 
         return FunctionCallNode(name, args)
 
@@ -1729,14 +1918,11 @@ class Parser:
     def expr(self):
         # expr要么返回BinaryOpNode, 要么是term()
 
-
-
         # 调用实例内部的方法  this->xxx();
         if self.call_class_inner_method():
             return self.evaluate_call_class_inner_method()
 
-
-
+        # 连续调用
 
         node = self.term()
         # 优先级比term低
@@ -1789,7 +1975,10 @@ class Parser:
         return self.expr()  # 否则解析一般表达式
 
     def current_token_type(self):
-        return self.tokens[self.pos][0]
+        try:
+            return self.tokens[self.pos][0]
+        except IndexError:
+            print("IndexError: list index out of range")
 
     def current_token_value(self):
         # 获取下一个token的value
@@ -1812,14 +2001,15 @@ class Parser:
             raise SyntaxError(f"Expected {token_type} but got {self.tokens[self.pos][0]}")
 
     def parse_array(self):
+        # 回溯
         self.eat_current_token_type('LBRACKET')
         # 解析数组元素
         elements = []
+
         while self.current_token_type() != 'RBRACKET':
             # elements.append(self.factor())  这个是原来的，factor()只能解析单个元素
             # 数组元素可以是任意表达式，比如1+2, add(), true and true, 1>2, "hello"等
             elements.append(self.expr())
-
             if self.current_token_type() == 'COMMA':
                 self.eat_current_token_type('COMMA')
         self.eat_current_token_type('RBRACKET')
@@ -1891,15 +2081,12 @@ class Parser:
 
 
 if __name__ == '__main__':
-
-    # 语法冲突: 对象名称{}  访问对象属性的
     code = """
-          let x = 10;
-          do{
-            @printlnCyan(x);
-            x--;
-          }while(x>0)
-         
+        
+       $x = 3;
+       x/=2;
+        
+        
     """
     tokenizer = Tokenizer(code)
     tokens = tokenizer.tokenize()
