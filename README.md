@@ -10,6 +10,10 @@
 
 更新5 (2024/8/29): [增加字面量方法调用、连续调用、列表生成器等重要内容](https://github.com/imshi187/Fight-Language/blob/%E6%9B%B4%E6%96%B05-%E5%A2%9E%E5%8A%A0%E5%AD%97%E9%9D%A2%E9%87%8F%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E3%80%81%E8%BF%9E%E7%BB%AD%E8%B0%83%E7%94%A8%E7%AD%89/README.md) 
 
+更新6 (2024/8/31): [完善了面向对象机制  & 全面取消了分号](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B06-%E5%AE%8C%E5%96%84%E4%BA%86%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%89%B9%E6%80%A7-%26-%E5%8F%96%E6%B6%88%E4%BA%86%E5%88%86%E5%8F%B7)
+
+
+
 ### 简介
    - 语言概述
  
