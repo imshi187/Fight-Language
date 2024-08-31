@@ -18,8 +18,8 @@
 1, python 版本为3及其以上 , 涉及第三方库较少，建议使用pycharm 进行自动安装
 
 2，说明：<br> 
-<span>&emsp;&emsp;</span> Evaluator.py中的 from interpreter.xxx  import xxxNode， interpreter指的是interpreter目录，也就是本项目在本地运行时需要将本项目的根目录改为 interpreter 
-
+<span>&emsp;&emsp;</span> Evaluator.py中的 from interpreter.xxx  import xxxNode， interpreter指的是interpreter目录，也就是本项目在本地运行时需要将本项目的根目录改为 interpreter 。
+具体可以看proj_structure.png作为参考
 
 
 ### 简介
