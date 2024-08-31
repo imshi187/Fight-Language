@@ -6,7 +6,7 @@
 
 更新3 (2024/8.18):  [增加了函数注解，极大地加强了函数能力](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B03-%E5%87%BD%E6%95%B0%E6%B3%A8%E8%A7%A3): 已添加到main branch 
 
-更新4 (2024/8/19 和 8/22): [直接了基本数据类型进行方法调用的能力 & 类的注解系统 & do_while循环](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B04-%E8%AE%A9%E5%9F%BA%E6%9C%AC%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E5%8F%AF%E4%BB%A5%E5%83%8F%E5%AF%B9%E8%B1%A1%E4%B8%80%E6%A0%B7%E8%B0%83%E7%94%A8%E6%96%B9%E6%B3%95): 已加入到main branch
+更新4 (2024/8/19 和 8/22): [增加了基本数据类型进行方法调用的能力 & 类的注解系统 & do_while循环](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B04-%E8%AE%A9%E5%9F%BA%E6%9C%AC%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E5%8F%AF%E4%BB%A5%E5%83%8F%E5%AF%B9%E8%B1%A1%E4%B8%80%E6%A0%B7%E8%B0%83%E7%94%A8%E6%96%B9%E6%B3%95): 已加入到main branch
 
 更新5 (2024/8/29): [增加字面量方法调用、连续调用、列表生成器等重要内容](https://github.com/imshi187/Fight-Language/blob/%E6%9B%B4%E6%96%B05-%E5%A2%9E%E5%8A%A0%E5%AD%97%E9%9D%A2%E9%87%8F%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E3%80%81%E8%BF%9E%E7%BB%AD%E8%B0%83%E7%94%A8%E7%AD%89/README.md) 
 
