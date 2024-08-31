@@ -5,7 +5,7 @@ from typing import List
 from colorama import Fore, Back
 
 from interpreter.ClassNodes import ClassDeclarationNode, NewObjectNode, MethodCallNode, GetMemberNode, \
-    CallClassInnerMethod, ThisNode, InterfaceNode, GetMemberNodeByThis
+    CallClassInnerMethod, ThisNode, InterfaceNode, GetMemberNodeByThis, SerialMethodCallNode
 from interpreter.utils.FileDir import FileSystemUtils
 from interpreter.utils.Random import RandomUtils
 from interpreter.utils.Time import TimeUtils
@@ -18,7 +18,7 @@ from interpreter.Nodes import AssignmentNode, NumberNode, BinaryOpNode, Variable
     MatchExprNode, SwitchNode, DecontructAssignNode, ListDeconstructAssignNode, ForRangeNumberNode, TryCatchFinallyNode, \
     IncrementNode, DecrementNode, SetNode, CombineNode, MultiListIndexNode, StructDeclarationNode, StructAssignNode, \
     StructAccessNode, EnumDeclarationNode, EnumAccessNode, ChainNode, DoWhileNode, ListGeneratorNode, AbsNode, \
-    SerialCall, PlusAssignNode, MinusAssignNode, MultiplyAssignNode, DivideAssignNode
+    SerialCall, PlusAssignNode, MinusAssignNode, MultiplyAssignNode, DivideAssignNode, ObjectAssignNode, ListAssignNode
 from interpreter.Parser import Parser
 from interpreter.utils.datastructure.StringUtils import StringUtils
 from interpreter.Tokenizer import Tokenizer
@@ -57,7 +57,7 @@ class Evaluator:
         """
 
         # 数据类型解析
-        if isinstance(node, (int, float, bool, str,list,dict,tuple)):
+        if isinstance(node, (int, float, bool, str, list, dict, tuple)):
             return node
 
         if isinstance(node, NumberNode):
@@ -70,6 +70,7 @@ class Evaluator:
             return self.evaluate_object(node)
         elif isinstance(node, VariableNode):
             return self.evaluate_variable(node)
+
         elif isinstance(node, BooleanNode):
             if node.value == "True":
                 return True
@@ -156,6 +157,12 @@ class Evaluator:
             except NameError as e:
                 # 如果发生了NameError,可能就是基本数据类型进行方法的调用
                 return self.execute_by_instance_type(node)
+
+        # 连续调用
+        elif isinstance(node,SerialMethodCallNode):
+            return self.evaluate_serial_method_call(node)
+
+
 
         # 类内部方法调用解析 this.xxx();
         if isinstance(node, CallClassInnerMethod):
@@ -264,20 +271,73 @@ class Evaluator:
             return self.evaluate_plus_assign(node)
         # -=
         elif isinstance(node, MinusAssignNode):
-             return self.evaluate_minus_assign(node)
+            return self.evaluate_minus_assign(node)
 
         # *=
-        elif isinstance(node,MultiplyAssignNode):
+        elif isinstance(node, MultiplyAssignNode):
             return self.evaluate_multiply_assign(node)
 
         # /=
-        elif isinstance(node,DivideAssignNode):
+        elif isinstance(node, DivideAssignNode):
             return self.evaluate_divide_assign(node)
 
+
+
+        # d{"key"} = val
+        elif isinstance(node, ObjectAssignNode):
+            return self.evaluate_object_assign(node)
+
+        # d[index] = val
+        elif isinstance(node, ListAssignNode):
+            return self.evaluate_list_assign(node)
 
         else:
             raise TypeError(f"Unexpected node type: {type(node)}")
 
+
+
+
+
+
+
+    def evaluate_serial_method_call(self, node: SerialMethodCallNode):
+        """
+            实现连续调用
+            p->show()->say()这样的调用
+
+        """
+        val = None
+        for single_call in node.methods_list:
+            # 调用方法
+            val = self.evaluate_method_call(single_call)
+        if val is not None:
+            return val
+        else:
+            return False
+
+
+
+
+    def evaluate_list_assign(self, node: ListAssignNode):
+        """
+            实现列表赋值
+            d[index] = val;
+        """
+        try:
+            self.environment[self.evaluate(node.list_name)][self.evaluate(node.index_expr)] = self.evaluate(
+                node.value_expr)
+            return True
+        except:
+            return False
+
+    def evaluate_object_assign(self, node: ObjectAssignNode):
+        """
+            实现对象赋值
+            d{"key"} = val;
+        """
+        obj_name = node.object_name
+        obj = self.environment[obj_name]
+        obj[self.evaluate(node.key_expr)] = self.evaluate(node.value_expr)
 
     def evaluate_divide_assign(self, node: DivideAssignNode):
         """
@@ -306,7 +366,6 @@ class Evaluator:
         self.environment[var_name] -= dec_val
         return None
 
-
     def evaluate_plus_assign(self, node: PlusAssignNode):
         """
             实现 += 系列
@@ -316,17 +375,16 @@ class Evaluator:
         self.environment[var_name] += inc_val
         return None
 
-
     def evaluate_serial_call(self, node: SerialCall):
         """
             实现串行调用
         """
         # 使用字面量进行连续调用
-        #======================字面量调用方法 ===========================
+        # ======================字面量调用方法 ===========================
         # ""->lower()->split()这样 字面量调用方法
         if node.caller == "anonymous":
             self.environment[node.caller] = self.evaluate(node.extra)
-            #=================================================
+            # =================================================
             caller_value_copy = self.environment[node.caller]
 
             # 遍历方法列表，执行方法，并将结果保存到caller变量中
@@ -422,22 +480,22 @@ class Evaluator:
         # 根据数据类型进行对应方法的调用，也就是说，这样存在一个对类型的隐士判断
         if isinstance(var_value, str):
             # print("str 实例")
-            val  =  self.evaluate_string_type_method_call(node)
+            val = self.evaluate_string_type_method_call(node)
             del self.environment[node.instance_name]
             return val
 
         if isinstance(var_value, list):
-            val =  self.evaluate_list_type_method_call(node)
+            val = self.evaluate_list_type_method_call(node)
             del self.environment[node.instance_name]
             return val
 
         if isinstance(var_value, dict):
-            val =  self.evaluate_dict_type_method_call(node)
+            val = self.evaluate_dict_type_method_call(node)
             del self.environment[node.instance_name]
             return val
 
         if isinstance(var_value, set):
-            val =  self.evaluate_set_type_method_call(node)
+            val = self.evaluate_set_type_method_call(node)
             del self.environment[node.instance_name]
             return val
 
@@ -1302,7 +1360,6 @@ class Evaluator:
         # print("node info: ", node)
 
         # ====================version 2============================================
-
         caller = node.instance_name  # 记录调用者的名字
         self.current_object = caller  # 记录当前的对象，用于this的解析
 
@@ -1335,6 +1392,9 @@ class Evaluator:
             return result
         # ====================类调用方法结束============================================
 
+
+
+        #====== ====================== 实例方法调用===============================
         # print("caller: ", caller)
         method_name = node.method_name
         args_pass_in = [self.evaluate(arg) for arg in node.arguments]
@@ -1356,14 +1416,34 @@ class Evaluator:
         # 保存旧环境
         old_env = self.environment
 
+
+        #================原来的代码=====================================
         # 创建新环境，包含实例字段和方法参数
-        self.environment = {
-            **old_env,  # 包含全局环境,是指可以访问类外面的变量
+        # self.environment = {
+        #     **old_env,  # 包含全局环境,是指可以访问类外面的变量
+        #     **instance_dict['fields'],
+        #     **dict(zip(method_dict['args'], args_pass_in)),
+        #     # "constants": []  # 记录声明的常量
+        # }
+
+        #=============================test==============================
+        new_env = {
+            **old_env,  # 包含全局环境
             **instance_dict['fields'],
             **dict(zip(method_dict['args'], args_pass_in)),
-            # "constants": []  # 记录声明的常量
         }
-        #
+
+        # 新增：将参数也添加到 instances 字典中
+        if 'instances' not in new_env:
+            new_env['instances'] = {}
+        for arg_name, arg_value in zip(method_dict['args'], args_pass_in):
+             # 判断是不是实例对象
+            if isinstance(arg_value, dict) and "fields" in arg_value:
+                new_env['instances'][arg_name] = arg_value
+        self.environment = new_env
+        #===============================test============================
+
+
         # 执行方法体
         result = None
         for statement in method_dict['body']:
@@ -1374,17 +1454,10 @@ class Evaluator:
             for field_name in instance_dict['fields']:
                 if field_name in self.environment:
                     instance_dict['fields'][field_name] = self.environment[field_name]
-
-        # 原先实例更新的版本，和上面的for在同一个level
-        # for field_name in instance_dict['fields']:
-        #     if field_name in self.environment:
-        #         instance_dict['fields'][field_name] = self.environment[field_name]
-
         # 恢复旧环境
         self.environment = old_env
 
         return result
-        # ====================version 2========end====================================
 
     def evaluate_new_object_expr(self, node: NewObjectNode):
         """
@@ -1433,7 +1506,25 @@ class Evaluator:
             }
         # print("return_instance(处理prototype的methods后): ",return_instance)
 
-        # 处理init
+        # 处理init  (多个init函数)
+        # original_class_definition['init']: [
+        #   {'args': ['name', 'age'], 'body': [
+        #               AssignmentNode(name=Name, value=VariableNode(value=name), is_constant=False),
+        #               AssignmentNode(name=Age, value=VariableNode(value=age), is_constant=False)], 'default_values': {}},
+        #   {'args': ['age'], 'body': [
+        #                                         AssignmentNode(name=Age, value=VariableNode(value=age),
+        #                                                        is_constant=False)], 'default_values': {}}]
+        # #
+
+        # ======================= 找到匹配的init函数 ========
+        arg_len = len(node.arguments)
+        for init in original_class_definition['init']:
+            if len(init['args']) == arg_len:
+                original_class_definition['init'] = init
+        # ======================= 找到匹配的init函数 ========
+
+
+        # print("original_class_definition['init']: ", original_class_definition['init'])
         if original_class_definition['init']:
             init_args = original_class_definition['init']['args']
             init_body = original_class_definition['init']['body']
@@ -1590,13 +1681,30 @@ class Evaluator:
             }
         # print("class_dict(methods): ", class_dict['methods'])
         # 处理初始化函数
-        if node.init:
+        print("node.init:", node.init)
+
+        if isinstance(node.init, list):
+            inits = []
+            for init in node.init:
+                inits.append({
+                'args': init.args,
+                'body': init.body,
+                "default_values": init.default_values,
+
+            })
+            class_dict['init'] = inits
+
+        else:
+            # 只有一个初始化函数
+            # if node.init:
             class_dict['init'] = {
                 'args': node.init.args,
                 'body': node.init.body,
                 "default_values": node.init.default_values,
 
             }
+
+
         # print("init: ", class_dict['init'])
         # 将类定义存储在环境中
         self.environment["objects"][class_name] = class_dict
@@ -2050,6 +2158,15 @@ class Evaluator:
             except:
                 return {}
 
+        # Char2Asc
+        if node.name == "Char2Asc":
+            return ord(self.evaluate(node.args[0]))
+
+        # Asc2Char
+        if node.name == "Asc2Char":
+            return chr(self.evaluate(node.args[0]))
+
+
         # ===============借用python的字符串方法===================================
         # name就是method_name
         # dir(StringUtils) 得到StringUtils的所有方法，包括自定义的，dir返回列表
@@ -2148,23 +2265,14 @@ class Evaluator:
         # ===================处理嵌套函数调用=========================================
         # 得到的是函数调用节点
         if isinstance(node.name, FunctionCallNode):
-            # print("函数调用节点: ", node)
             # node.name是一个FunctionCallNode，也就是fcn嵌套fcn
             func_dict = self.evaluate(node.name)
             # 参数是传递给func_dict描述的方法的！！！
             r = self.eval_by_func_dict(func_dict, node.args)
-            # print("args: ", args)
-            # print("result: ", func_dict)
-            # print("r: ", r)
             return r
         # ===================处理嵌套函数调用=========================================
         # 使用Node解求值
         if node.name in self.environment:
-            # 准备函数的参数和体
-            # print("===============> node.name: ", node.name)
-            # print("=======x====> args:  ", node.args)
-            # 结果是None
-            # print("self.environment[node.name] = ", self.environment[node.name])
             func_dict = self.environment[node.name]
 
             # 如果 func 是一个函数（包括 Lambda 函数）
@@ -2177,7 +2285,9 @@ class Evaluator:
             #       name=add,
             #       args=[NumberNode(value=111111), StringNode(value=empty str)])
             # node.args:  是实际传入的参数  func_args：是形参,函数参数名称(list类型)
-            local_scope = {}
+            local_scope = {
+                "instances":{}
+            }
             # print("node: ", node)
             # self.environment[node.name]["defaults"]指的是函数声明时候放到environment中的默认值
             default_values = self.environment[node.name]["defaults"]
@@ -2197,14 +2307,18 @@ class Evaluator:
             # node.args: 实际传入的参数  func_args: 形参名称
             # arg_name: 形式参数名  arg_value: 实际参数值
             # ====================位置参数处理=====================================
-
-            # print(" zip(func_args, node.args): ", list(zip(func_args, node.args)))
-            # zip(func_args, node.args): [('x', FunctionDeclarationNode(is_static=False, name=cb, args=['y'], body=[
-            #     FunctionCallNode(name=print, args=[VariableNode(value=y)], named_arg_values={})], default_values={}, ))]
-            # node.args是实参，func_args是形参
-            # print("测试func_args: ", func_args)
             for arg_name, arg_value in zip(func_args, node.args):
-                local_scope[arg_name] = self.evaluate(arg_value)
+                # local_scope[arg_name] = self.evaluate(arg_value)  # 原来代码，只能处理传入简单参数，而不能处理对象
+            # =========================传入的如果是对象======================================
+                val_or_instance = self.evaluate(arg_value)
+                # 传入的如果是对象
+                if isinstance(val_or_instance, dict) and "fields" in val_or_instance:
+                    # 传入的如果是对象
+                    local_scope["instances"][arg_name] = val_or_instance
+                else:
+                    local_scope[arg_name] = val_or_instance
+            #===============================================================
+
 
             # 将命名参数放到环境中
             # 命名参数，比如 add(a=1, b=2)
@@ -2214,9 +2328,9 @@ class Evaluator:
 
             # ===============检查参数=============在默认参数和传入参数合并后判断参数是否齐全============
             # print("需要的参数: ",self.environment[node.name]['args'])
-            for format_param in self.environment[node.name]['args']:
-                if format_param not in local_scope:
-                    raise ValueError(f"Function '{node.name}' expects parameter '{format_param}' but got nothing.")
+            # for format_param in self.environment[node.name]['args']:
+            #     if format_param not in local_scope:
+            #         raise ValueError(f"Function '{node.name}' expects parameter '{format_param}' but got nothing.")
 
             # =======================环境================================
             # 保存当前的环境，以便函数执行完后恢复
@@ -2730,10 +2844,45 @@ class Evaluator:
 if __name__ == '__main__':
     # ================================================================
     code = """
-        $x = 3;
-        x/=2;
-        printlnRed(x);
+        class Person{
+            fields{
+                Name = "ai";
+                Age = 20;
+                Address = "china";
+            }
+            methods{
+                def SayAge(){
+                    printlnCyan("Age = ",Age);
+                }
+                def SayName(){
+                    printlnCyan("Name = ",Name);
+                }
+                def SayAddress(){
+                    printlnCyan("Address = ",Address);
+                }
+                def PrintInfo(p1){
+                    p1->SayName();
+                    p1->SayAge();
+                    p1->SayAddress();
+                    
+                }
+            }
+            init(name,age,address){
+                Name = name;
+                Age = age;
+                Address = address;
+            }
+            init(name,age){
+                Name = name;
+                Age = age;
+            }
+            init(age){
+                  Age = age;
+            }
+        }
         
+    
+          
     """
     # ==================================================================
     print("=================tokenizer======================\n")

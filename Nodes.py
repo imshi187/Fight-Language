@@ -498,3 +498,26 @@ class DivideAssignNode(Node):
     def __repr__(self):
         return f"DivideAssignNode(var_name={self.var_name},div_val={self.div_val})"
 
+
+# d{key} = val
+class ObjectAssignNode(Node):
+    def __init__(self, object_name, key_expr, value_expr):
+        self.object_name = object_name
+        self.key_expr = key_expr
+        self.value_expr = value_expr
+
+    def __repr__(self):
+
+        return f"ObjectAssignNode(object_name={self.object_name},key_expr={self.key_expr},value_expr={self.value_expr})"
+
+
+# lst[index] = val;
+class ListAssignNode(Node):
+    def __init__(self, list_name, index_expr, value_expr):
+        self.list_name = list_name
+        self.index_expr = index_expr
+        self.value_expr = value_expr
+
+    def __repr__(self):
+        return f"ListAssignNode(list_name={self.list_name},index_expr={self.index_expr},value_expr={self.value_expr})"
+

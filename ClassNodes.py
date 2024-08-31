@@ -128,3 +128,15 @@ class GetMemberNodeByThis(Node):
         self.member_name = member_name
     def __repr__(self):
         return f"GetMemberNodeByThis(member_name = {self.member_name})"
+
+
+
+# 连续调用方法
+# p->sayHello()->sayWorld()
+class SerialMethodCallNode(Node):
+    def __init__(self, instance_name,methods_list:list = []):
+        self.instance_name = instance_name
+        self.methods_list = methods_list
+
+    def __repr__(self):
+        return f"SerialMethodCallNode(instance_name = {self.instance_name},methods_list = {self.methods_list})"
