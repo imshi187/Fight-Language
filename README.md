@@ -13,6 +13,14 @@
 更新6 (2024/8/31): [完善了面向对象机制  & 全面取消了分号](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B06-%E5%AE%8C%E5%96%84%E4%BA%86%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%89%B9%E6%80%A7-%26-%E5%8F%96%E6%B6%88%E4%BA%86%E5%88%86%E5%8F%B7)
 
 
+### Requirements (重要) 
+
+1, python 版本为3及其以上 , 涉及第三方库较少，建议使用pycharm 进行自动安装
+
+2，说明：<br> 
+<span>&emsp;&emsp;</span> Evaluator.py中的 from interpreter.xxx  import xxxNode， interpreter指的是interpreter目录，也就是本项目在本地运行时需要将本项目的根目录改为 interpreter 
+
+
 
 ### 简介
    - 语言概述
