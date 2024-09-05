@@ -1,0 +1,12 @@
+def foreach(arr, func){
+    for(element in arr){
+        func(element)
+    }
+}
+
+
+
+exports = [
+   "foreach",
+
+]
