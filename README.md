@@ -12,6 +12,7 @@
 
 更新6 (2024/8/31): [完善了面向对象机制](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B06-%E5%AE%8C%E5%96%84%E4%BA%86%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%89%B9%E6%80%A7-%26-%E5%8F%96%E6%B6%88%E4%BA%86%E5%88%86%E5%8F%B7)
 
+更新7 (2024/9/5): [完善了模块机制](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B07-%E5%AE%8C%E5%96%84%E4%BA%86%E6%A8%A1%E5%9D%97%E6%9C%BA%E5%88%B6)
 
 ### Requirements (重要) 
 
