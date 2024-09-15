@@ -1,0 +1,83 @@
+def foreach(arr, func){
+    for(element in arr){
+        func(element)
+    }
+}
+
+#
+    是否存在一个元素使得func返回True，如果存在，返回True，否则返回False。
+#
+
+def every(arr, func){
+    for(element in arr){
+        if(not func(element)){
+            return False
+        }
+    }
+    return True
+}
+
+#
+    是否存在一个元素使得func返回True，如果存在，返回True，否则返回False。
+#
+
+def any(arr, func){
+    for(element in arr){
+        if(func(element)==True){
+            return True;
+        }
+    }
+    return False;
+}
+
+#
+    是否存在一个元素使得func返回True，如果存在，返回True，否则返回False。
+
+#
+
+def some(arr, func){
+    for(element in arr){
+        if(func(element)){
+            return True;
+        }
+    }
+    return False;
+}
+
+
+#
+    返回一个新的数组，其中包含所有func返回True的元素。
+#
+
+def filter(arr, func){
+    result = []
+    for(element in arr){
+        if(func(element)){
+            result->append(element)
+        }
+    }
+    return result
+}
+
+#
+    返回一个新的数组，其中包含所有func返回True的元素。
+#
+
+def map(arr, func){
+    result = []
+    for(element in arr){
+        result->append(func(element))
+    }
+    return result
+}
+
+
+exports = [
+   "foreach",
+   "every",
+   "any",
+   "some",
+   "filter",
+   "map"
+
+]
