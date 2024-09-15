@@ -14,6 +14,9 @@
 
 更新7 (2024/9/5): [完善了模块机制](https://github.com/imshi187/Fight-Language/tree/%E6%9B%B4%E6%96%B07-%E5%AE%8C%E5%96%84%E4%BA%86%E6%A8%A1%E5%9D%97%E6%9C%BA%E5%88%B6)
 
+更新8 (2024/9/15): [增加了类型系统 & 完善了其他一些bugs](https://github.com/imshi187/Fight-Language/blob/%E6%9B%B4%E6%96%B08-%E5%A2%9E%E5%8A%A0%E4%BA%86%E7%B1%BB%E5%9E%8B%E7%B3%BB%E7%BB%9F-&-%E5%AE%8C%E5%96%84%E4%BA%86%E5%85%B6%E4%BB%96bugs/README.md)
+
+
 ### Requirements (重要) 
 
 1, python 版本为3及其以上 , 涉及第三方库较少，建议使用pycharm 进行自动安装
